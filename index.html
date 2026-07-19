@@ -562,8 +562,10 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   min-height: 0;
   overflow: hidden;
   container-type: size;
-  display: flex; align-items: center; justify-content: center;
-  padding: var(--space-md);
+  /* Top-anchored, not centred: the board hangs directly off the clue, and
+     any slack collects below it — which is where the keyboard goes anyway. */
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 0 var(--space-md) var(--space-md);
 }
 
 .xw-gridwrap {
@@ -660,14 +662,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 
 .xw-cluebar {
   flex: 0 0 auto;
-  display: flex; align-items: center; gap: var(--space-xs);
-  padding: var(--space-sm) var(--space-xs);
-  border-bottom: var(--hairline) solid var(--border);
-  background: var(--surface);
+  display: flex; align-items: center; gap: var(--space-sm);
+  /* No surface, no rule: the pill sits directly on the canvas so it reads
+     as an object above the board rather than as its own panel. */
+  padding: var(--space-xs) var(--space-md) var(--space-sm);
   /* Reserved height. The clue sits above the board now, so a bar that grew
      or shrank between clues would resize the grid underneath it. Sized for
      the two-line case, so every clue occupies the same space. */
-  min-height: calc(var(--u) * 5.4);
+  min-height: calc(var(--u) * 5.0);
 }
 .xw-arrow {
   flex: 0 0 auto; align-self: stretch;
@@ -680,10 +682,12 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 }
 .xw-arrow:active { background: var(--surface-subtle); }
 
+.xw-nav { flex: 0 0 auto; display: flex; gap: var(--space-xs); }
+
 .xw-clue {
   flex: 1 1 auto; min-width: 0;
   display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
+  align-items: flex-start; justify-content: center;
   gap: var(--space-xs);
   padding: 0; background: none; border: 0;
   cursor: pointer; font-family: var(--sans);
@@ -715,7 +719,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   font-size: var(--text-xl);
   font-weight: 650;
   line-height: 1.25;
-  text-align: center;
+  text-align: left;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -877,7 +881,11 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         id: `${number}${e.dir[0].toUpperCase()}`
       };
     });
-    entries.sort((a, b) => a.number - b.number || (a.dir === "across" ? -1 : 1));
+
+    // Direction first, then number: 1A 4A 5A 6A 7A, then 1D 2D 3D 4D 5D.
+    // Stepping therefore runs 2A -> 3A within a direction and only crosses
+    // into the down clues at the end of the across list.
+    entries.sort((a, b) => (a.dir === b.dir ? 0 : a.dir === "across" ? -1 : 1) || a.number - b.number);
 
     // Report clue keys the grid does not produce — the usual authoring slip.
     for (const dir of ["across", "down"]) {
@@ -990,17 +998,36 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         };
       });
     }, [model]);
-    const stepEntry = useCallback(delta => {
-      if (!model.entries.length) return;
-      const i = entryIdx == null ? 0 : entryIdx;
-      const next = model.entries[(i + delta + model.entries.length) % model.entries.length];
-      const target = next.cells.find(({
-        r,
-        c
-      }) => !letters[`${r},${c}`]) ?? next.cells[0];
+
+    // requireEmpty: used when auto-advancing after filling an entry, so the
+    // cursor skips words that are already complete. The clue-bar arrows leave
+    // it off, so manual navigation still visits every clue.
+    const stepEntry = useCallback((delta, requireEmpty = false) => {
+      const list = model.entries;
+      const n = list.length;
+      if (!n) return;
+      const start = entryIdx == null ? 0 : entryIdx;
+      const at = k => list[((start + delta * k) % n + n) % n];
+      for (let k = 1; k <= n; k++) {
+        const next = at(k);
+        const empty = next.cells.find(({
+          r,
+          c
+        }) => !letters[`${r},${c}`]);
+        if (requireEmpty && !empty) continue;
+        const target = empty ?? next.cells[0];
+        setCursor({
+          r: target.r,
+          c: target.c,
+          dir: next.dir
+        });
+        return;
+      }
+      // Every entry is full — land on the immediate neighbour anyway.
+      const next = at(1);
       setCursor({
-        r: target.r,
-        c: target.c,
+        r: next.cells[0].r,
+        c: next.cells[0].c,
         dir: next.dir
       });
     }, [model, entryIdx, letters]);
@@ -1020,7 +1047,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         ...rest[rest.length - 1],
         dir: entry.dir
       });
-      stepEntry(1);
+      stepEntry(1, true);
     }, [entry, cursor, letters, stepEntry]);
     const type = useCallback(ch => {
       if (!model.cellIndex?.[cursor.r]?.[cursor.c]) return;
@@ -1220,10 +1247,6 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     return /*#__PURE__*/React.createElement("div", {
       className: "xw-cluebar"
     }, /*#__PURE__*/React.createElement("button", {
-      className: "xw-arrow",
-      onClick: onPrev,
-      "aria-label": "Previous clue"
-    }, "‹"), /*#__PURE__*/React.createElement("button", {
       className: "xw-clue",
       onClick: onToggle
     }, /*#__PURE__*/React.createElement("div", {
@@ -1235,11 +1258,17 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       className: "xw-tick" + (i < done ? " on" : "")
     }))), /*#__PURE__*/React.createElement("span", null, done, "/", entry.len)), /*#__PURE__*/React.createElement("div", {
       className: "xw-cluetext"
-    }, entry.clue)), /*#__PURE__*/React.createElement("button", {
+    }, entry.clue)), /*#__PURE__*/React.createElement("div", {
+      className: "xw-nav"
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "xw-arrow",
+      onClick: onPrev,
+      "aria-label": "Previous clue"
+    }, "‹"), /*#__PURE__*/React.createElement("button", {
       className: "xw-arrow",
       onClick: onNext,
       "aria-label": "Next clue"
-    }, "›"));
+    }, "›")));
   }
 
   /* ------------------------------------------------------------- samples --
