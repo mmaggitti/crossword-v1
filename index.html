@@ -558,6 +558,23 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 }
 .xw-cell.cursor .xw-num { color: var(--accent-softest); }
 
+.xw-update {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px;
+  background: var(--accent-softest); color: var(--accent-deepest);
+  border-top: 1px solid var(--accent-soft);
+  font-family: var(--sans); font-size: 13.5px;
+}
+.xw-update span { flex: 1 1 auto; }
+.xw-update button {
+  flex: 0 0 auto; border: 0; border-radius: 5px; padding: 7px 14px;
+  background: var(--accent); color: var(--surface);
+  font-family: var(--sans); font-size: 13px; font-weight: 600;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.xw-update button:active { background: var(--accent-deep); }
+
 .xw-cluebar {
   flex: 0 0 auto;
   display: flex; align-items: stretch;
@@ -968,6 +985,69 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     };
   }
 
+  /* ------------------------------------------------------- app updates --
+     The service worker is cache-first, so a new deploy sits in the "waiting"
+     state until something tells it to take over. Rather than swapping code
+     under a half-solved puzzle, the page surfaces a banner and lets the user
+     choose the moment.                                                      */
+
+  function useAppUpdate() {
+    const [waiting, setWaiting] = useState(null);
+    useEffect(() => {
+      if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+      const sw = navigator.serviceWorker;
+      let reg = null;
+      let dead = false;
+      let reloading = false;
+
+      // On a first-ever visit there is no controller; the worker claiming the
+      // page then is normal startup, not an update, and must not reload.
+      const hadController = !!sw.controller;
+      const watch = worker => {
+        if (!worker) return;
+        worker.addEventListener("statechange", () => {
+          if (worker.state === "installed" && sw.controller) setWaiting(worker);
+        });
+      };
+      sw.getRegistration().then(r => {
+        if (!r || dead) return;
+        reg = r;
+        if (r.waiting && sw.controller) setWaiting(r.waiting);
+        watch(r.installing);
+        r.addEventListener("updatefound", () => watch(r.installing));
+      });
+      const onController = () => {
+        if (!hadController || reloading) return;
+        reloading = true;
+        window.location.reload();
+      };
+      sw.addEventListener("controllerchange", onController);
+
+      // Re-check when the app comes back to the foreground, so a long-lived
+      // installed copy still notices deploys.
+      const recheck = () => {
+        if (reg) reg.update().catch(() => {});
+      };
+      window.addEventListener("focus", recheck);
+      document.addEventListener("visibilitychange", recheck);
+      return () => {
+        dead = true;
+        sw.removeEventListener("controllerchange", onController);
+        window.removeEventListener("focus", recheck);
+        document.removeEventListener("visibilitychange", recheck);
+      };
+    }, []);
+    const applyUpdate = useCallback(() => {
+      if (waiting) waiting.postMessage({
+        type: "SKIP_WAITING"
+      });
+    }, [waiting]);
+    return {
+      updateReady: !!waiting,
+      applyUpdate
+    };
+  }
+
   /* ------------------------------------------------------------- renderer --
      The swap point. A Three.js version implements this same prop contract:
      ({ model, cursor, letters, wrong, solved, onCellTap }) => node            */
@@ -1138,6 +1218,10 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     const {
       model
     } = P;
+    const {
+      updateReady,
+      applyUpdate
+    } = useAppUpdate();
 
     /* --- keyboard: the real one -------------------------------------------
        iOS only raises its keyboard for a focused editable element, so a
@@ -1281,7 +1365,11 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       spellCheck: false,
       "aria-label": "Type letters",
       tabIndex: -1
-    }), /*#__PURE__*/React.createElement(ClueBar, {
+    }), updateReady && /*#__PURE__*/React.createElement("div", {
+      className: "xw-update"
+    }, /*#__PURE__*/React.createElement("span", null, "A new version is ready."), /*#__PURE__*/React.createElement("button", {
+      onClick: applyUpdate
+    }, "Reload")), /*#__PURE__*/React.createElement(ClueBar, {
       entry: P.entry,
       letters: P.letters,
       onPrev: () => P.stepEntry(-1),
