@@ -518,6 +518,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 }
 
 .xw-gridwrap {
+  box-sizing: border-box;
   width: 100%;
   max-width: min(92vw, 420px);
   max-height: 100%;
@@ -534,6 +535,10 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   background: var(--surface);
   display: flex; align-items: center; justify-content: center;
   font-family: var(--mono); font-weight: 600;
+  /* line-height:1 plus min-height:0 plus overflow:hidden means a letter's
+     line box can never push its grid row taller than its 1fr share. */
+  line-height: 1;
+  min-width: 0; min-height: 0; overflow: hidden;
   color: var(--ink);
   cursor: pointer;
   user-select: none;
@@ -616,6 +621,11 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   background: var(--surface-subtle); color: var(--muted);
   cursor: default; font-weight: 500;
 }
+.xw-actionrow { display: flex; gap: 8px; }
+.xw-actionrow .xw-btn.kbd { flex: 0 0 82px; background: var(--surface); color: var(--accent-deep);
+  border: 1px solid var(--border); font-weight: 500; }
+.xw-actionrow .xw-btn.kbd:active { background: var(--accent-softest); }
+
 .xw-banner {
   padding: 11px 12px; border-radius: 6px;
   font-size: 14px; line-height: 1.35;
@@ -623,24 +633,16 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 }
 .xw-banner.bad { background: var(--status-danger); color: var(--ink); }
 
-.xw-keys {
-  flex: 0 0 auto;
-  padding: 4px 4px calc(4px + env(safe-area-inset-bottom, 0px));
-  background: var(--surface-subtle);
-  border-top: 1px solid var(--border);
+/* A visually-hidden, focusable input is what summons the real iOS keyboard.
+   It sits inside the visible viewport (not off-screen) so focusing it does
+   not make Safari scroll the page to find it. 16px font size stops iOS
+   zooming on focus. */
+.xw-input {
+  position: absolute; left: 50%; top: 50%;
+  width: 1px; height: 1px; padding: 0; border: 0;
+  font-size: 16px; opacity: 0; pointer-events: none;
+  background: transparent; color: transparent; caret-color: transparent;
 }
-.xw-krow { display: flex; gap: 4px; margin-bottom: 4px; justify-content: center; }
-.xw-krow:last-child { margin-bottom: 0; }
-.xw-key {
-  flex: 1 1 0; min-width: 0; max-width: 44px;
-  height: 42px; border: 1px solid var(--border); border-radius: 5px;
-  background: var(--surface); color: var(--ink);
-  font-family: var(--mono); font-size: 16px; font-weight: 600;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.xw-key:active { background: var(--accent-softest); border-color: var(--accent-soft); }
-.xw-key.wide { max-width: 64px; flex: 1.4 1 0; font-size: 15px; }
 
 .xw-errors {
   padding: 10px var(--gap);
@@ -995,6 +997,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       className: "xw-gridwrap" + (solved ? " solved" : ""),
       style: {
         gridTemplateColumns: `repeat(${model.cols}, 1fr)`,
+        gridTemplateRows: `repeat(${model.rows}, 1fr)`,
         aspectRatio: `${model.cols} / ${model.rows}`
       }
     }, model.solution.map((row, r) => row.map((sol, c) => {
@@ -1025,31 +1028,6 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 
   /* ------------------------------------------------------------------ UI -- */
 
-  const ROWS = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
-  function Keys({
-    onKey,
-    onDelete
-  }) {
-    return /*#__PURE__*/React.createElement("div", {
-      className: "xw-keys"
-    }, ROWS.map((row, i) => /*#__PURE__*/React.createElement("div", {
-      className: "xw-krow",
-      key: i
-    }, row.split("").map(k => /*#__PURE__*/React.createElement("button", {
-      className: "xw-key",
-      key: k,
-      onPointerDown: e => {
-        e.preventDefault();
-        onKey(k);
-      }
-    }, k)), i === 2 && /*#__PURE__*/React.createElement("button", {
-      className: "xw-key wide",
-      onPointerDown: e => {
-        e.preventDefault();
-        onDelete();
-      }
-    }, "DEL"))));
-  }
   function ClueBar({
     entry,
     letters,
@@ -1085,34 +1063,6 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       onClick: onNext,
       "aria-label": "Next clue"
     }, "›"));
-  }
-  function ActionBar({
-    filled,
-    wrong,
-    solved,
-    onCheck
-  }) {
-    if (solved) {
-      return /*#__PURE__*/React.createElement("div", {
-        className: "xw-action"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "xw-banner"
-      }, "Solved. Every square checks out."));
-    }
-    if (wrong && wrong.size > 0) {
-      return /*#__PURE__*/React.createElement("div", {
-        className: "xw-action"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "xw-banner bad"
-      }, wrong.size, " square", wrong.size === 1 ? "" : "s", " ", wrong.size === 1 ? "is" : "are", " wrong. Fix them and check again."));
-    }
-    return /*#__PURE__*/React.createElement("div", {
-      className: "xw-action"
-    }, /*#__PURE__*/React.createElement("button", {
-      className: "xw-btn",
-      disabled: !filled,
-      onClick: onCheck
-    }, filled ? "Check puzzle" : "Fill every square to check"));
   }
 
   /* ------------------------------------------------------------- samples --
@@ -1179,12 +1129,72 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   }) {
     const [which, setWhich] = useState("mini");
     const [toast, setToast] = useState(null);
-
-    // A puzzle in the URL wins over both the prop and the samples. Read once —
-    // re-reading on hashchange would silently discard in-progress letters.
+    const [kbdOn, setKbdOn] = useState(false);
+    const inputRef = useRef(null);
     const [linked] = useState(() => typeof window === "undefined" ? null : puzzleFromLocation());
     const source = linked ?? puzzle ?? (which === "mini" ? SAMPLE_MINI : SAMPLE_TINY);
     const canSwap = !linked && !puzzle;
+    const P = usePuzzle(source);
+    const {
+      model
+    } = P;
+
+    /* --- keyboard: the real one -------------------------------------------
+       iOS only raises its keyboard for a focused editable element, so a
+       hidden input stands in for one. Characters arrive as input events
+       rather than keydown, because iOS software keyboards report
+       key: "Unidentified" on keydown and can't be read that way.          */
+
+    const SENTINEL = "\u00a0";
+    const focusInput = useCallback(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.value = SENTINEL;
+      el.focus({
+        preventScroll: true
+      });
+      setKbdOn(true);
+    }, []);
+    const blurInput = useCallback(() => {
+      inputRef.current?.blur();
+      setKbdOn(false);
+    }, []);
+    const onInput = useCallback(e => {
+      const el = e.target;
+      const v = el.value;
+      if (v.length > SENTINEL.length) {
+        for (const ch of v.slice(SENTINEL.length)) {
+          if (/[a-zA-Z]/.test(ch)) P.type(ch.toUpperCase());else if (ch === " ") P.toggleDir();
+        }
+      } else if (v.length < SENTINEL.length) {
+        P.backspace();
+      }
+      // Restore the sentinel so there is always something for the next
+      // backspace to delete — otherwise iOS stops emitting delete events.
+      el.value = SENTINEL;
+    }, [P]);
+    const tapCell = useCallback((r, c) => {
+      P.tapCell(r, c);
+      if (kbdOn) focusInput();
+    }, [P, kbdOn, focusInput]);
+
+    /* --- viewport: keep the clue bar above the keyboard --------------------
+       The iOS keyboard overlays the page instead of resizing it, so the app
+       shrinks itself to the visual viewport to stay fully visible.          */
+
+    const [vh, setVh] = useState(null);
+    useEffect(() => {
+      const vv = typeof window !== "undefined" && window.visualViewport;
+      if (!vv) return;
+      const sync = () => setVh(vv.height);
+      sync();
+      vv.addEventListener("resize", sync);
+      vv.addEventListener("scroll", sync);
+      return () => {
+        vv.removeEventListener("resize", sync);
+        vv.removeEventListener("scroll", sync);
+      };
+    }, []);
     useEffect(() => {
       if (!toast) return;
       const t = setTimeout(() => setToast(null), 2600);
@@ -1197,22 +1207,24 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       } = await copyShareUrl(source);
       setToast(ok ? "Link copied. Anyone who opens it gets this puzzle." : `Copy failed — the link is ${url.length} characters.`);
     }, [source]);
-    const P = usePuzzle(source);
-    const {
-      model
-    } = P;
+
+    // Physical keyboards only. When the hidden input has focus it already
+    // handles letters and deletion, so this defers to it to avoid doubling.
     useEffect(() => {
       const onKey = e => {
         if (e.metaKey || e.ctrlKey || e.altKey) return;
+        if (e.key === "Tab") {
+          e.preventDefault();
+          P.stepEntry(e.shiftKey ? -1 : 1);
+          return;
+        }
+        if (typeof document !== "undefined" && document.activeElement === inputRef.current) return;
         if (/^[a-zA-Z]$/.test(e.key)) {
           e.preventDefault();
           P.type(e.key.toUpperCase());
         } else if (e.key === "Backspace") {
           e.preventDefault();
           P.backspace();
-        } else if (e.key === "Tab") {
-          e.preventDefault();
-          P.stepEntry(e.shiftKey ? -1 : 1);
         } else if (e.key === " ") {
           e.preventDefault();
           P.toggleDir();
@@ -1222,7 +1234,10 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       return () => window.removeEventListener("keydown", onKey);
     }, [P]);
     return /*#__PURE__*/React.createElement("div", {
-      className: "xw"
+      className: "xw",
+      style: vh ? {
+        height: vh
+      } : undefined
     }, /*#__PURE__*/React.createElement("style", null, TOKENS), /*#__PURE__*/React.createElement("div", {
       className: "xw-head"
     }, /*#__PURE__*/React.createElement("span", {
@@ -1242,29 +1257,53 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     }, model.errors.slice(0, 4).map((e, i) => /*#__PURE__*/React.createElement("div", {
       key: i
     }, "! ", e)), model.errors.length > 4 && /*#__PURE__*/React.createElement("div", null, "! …and ", model.errors.length - 4, " more")), /*#__PURE__*/React.createElement("div", {
-      className: "xw-stage"
+      className: "xw-stage",
+      onPointerDown: blurInput
+    }, /*#__PURE__*/React.createElement("div", {
+      onPointerDown: e => e.stopPropagation()
     }, /*#__PURE__*/React.createElement(GridDOM, {
       model: model,
       cursor: P.cursor,
       letters: P.letters,
       wrong: P.wrong,
       solved: P.solved,
-      onCellTap: P.tapCell
-    })), /*#__PURE__*/React.createElement(ClueBar, {
+      onCellTap: tapCell
+    }))), /*#__PURE__*/React.createElement("input", {
+      ref: inputRef,
+      className: "xw-input",
+      type: "text",
+      defaultValue: SENTINEL,
+      onInput: onInput,
+      onBlur: () => setKbdOn(false),
+      autoCapitalize: "characters",
+      autoCorrect: "off",
+      autoComplete: "off",
+      spellCheck: false,
+      "aria-label": "Type letters",
+      tabIndex: -1
+    }), /*#__PURE__*/React.createElement(ClueBar, {
       entry: P.entry,
       letters: P.letters,
       onPrev: () => P.stepEntry(-1),
       onNext: () => P.stepEntry(1),
       onToggle: P.toggleDir
-    }), /*#__PURE__*/React.createElement(ActionBar, {
-      filled: P.filled,
-      wrong: P.wrong,
-      solved: P.solved,
-      onCheck: P.checkAll
-    }), /*#__PURE__*/React.createElement(Keys, {
-      onKey: P.type,
-      onDelete: P.backspace
-    }));
+    }), /*#__PURE__*/React.createElement("div", {
+      className: "xw-action"
+    }, P.solved ? /*#__PURE__*/React.createElement("div", {
+      className: "xw-banner"
+    }, "Solved. Every square checks out.") : P.wrong && P.wrong.size > 0 ? /*#__PURE__*/React.createElement("div", {
+      className: "xw-banner bad"
+    }, P.wrong.size, " square", P.wrong.size === 1 ? "" : "s", " ", P.wrong.size === 1 ? "is" : "are", " wrong. Fix them and check again.") : /*#__PURE__*/React.createElement("div", {
+      className: "xw-actionrow"
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "xw-btn",
+      disabled: !P.filled,
+      onClick: P.checkAll
+    }, P.filled ? "Check puzzle" : "Fill every square to check"), /*#__PURE__*/React.createElement("button", {
+      className: "xw-btn kbd",
+      onClick: kbdOn ? blurInput : focusInput,
+      "aria-label": kbdOn ? "Hide keyboard" : "Show keyboard"
+    }, kbdOn ? "Hide" : "Type"))));
   }
   ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(CrosswordPlayer));
 })();</script>

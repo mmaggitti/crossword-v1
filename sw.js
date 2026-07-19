@@ -1,6 +1,6 @@
 /* Cache-first for everything. The app is static, so once these five files
    are cached it runs with no network at all. Bump CACHE to force an update. */
-var CACHE = "crossword-v1";
+var CACHE = "crossword-v2";
 var ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", function (e) {
