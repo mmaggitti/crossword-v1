@@ -653,8 +653,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 .xw-update button:active { background: var(--accent-deep); }
 
 .xw-cluebar {
+  flex: 0 0 auto;
   display: flex; align-items: stretch;
-  border-top: var(--hairline) solid var(--border);
   border-bottom: var(--hairline) solid var(--border);
   background: var(--surface);
 }
@@ -690,7 +690,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 }
 .xw-tick.on { background: var(--accent); }
 .xw-cluetext {
-  font-size: var(--text-md); line-height: 1.3; color: var(--ink);
+  font-size: var(--text-md); line-height: 1.3;
+  font-weight: 600; color: var(--accent);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
@@ -1161,8 +1162,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       const cls = ["xw-cell", isWrong ? "wrong" : isCursor ? "cursor" : inWord ? "inword" : ""].join(" ");
       return /*#__PURE__*/React.createElement("div", {
         key: `${r},${c}`,
-        className: cls,
-        onPointerDown: () => onCellTap(r, c)
+        className: cls
+        /* preventDefault stops the browser's own mousedown focus
+           handling from immediately blurring the hidden input we
+           just focused. */,
+        onPointerDown: e => {
+          e.preventDefault();
+          onCellTap(r, c);
+        }
       }, ci.number != null && /*#__PURE__*/React.createElement("span", {
         className: "xw-num"
       }, ci.number), letters[`${r},${c}`] ?? "");
@@ -1306,6 +1313,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       inputRef.current?.blur();
       setKbdOn(false);
     }, []);
+
+    // Toggling reads the DOM rather than React state. The button's own tap
+    // blurs the input before click fires, so any captured `kbdOn` is already
+    // one render stale by then — which is why the old Hide button dismissed
+    // the keyboard and immediately reopened it.
+    const toggleKeyboard = useCallback(() => {
+      if (document.activeElement === inputRef.current) blurInput();else focusInput();
+    }, [blurInput, focusInput]);
     const onInput = useCallback(e => {
       const el = e.target;
       const v = el.value;
@@ -1322,8 +1337,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     }, [P]);
     const tapCell = useCallback((r, c) => {
       P.tapCell(r, c);
-      if (kbdOn) focusInput();
-    }, [P, kbdOn, focusInput]);
+      focusInput(); // a tap on the board always means "I want to type here"
+    }, [P, focusInput]);
 
     /* --- keyboard inset ----------------------------------------------------
        How much of the layout viewport the keyboard currently covers. The
@@ -1355,6 +1370,12 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       const t = setTimeout(() => setToast(null), 2600);
       return () => clearTimeout(t);
     }, [toast]);
+
+    // Is the keyboard actually on screen? --kb is ground truth (however it
+    // was dismissed, the visual viewport grows back), with focus as an
+    // optimistic signal so the label flips on tap rather than after the
+    // keyboard finishes animating.
+    const kbVisible = kbInset > 0 || kbdOn;
     const share = useCallback(async () => {
       const {
         ok,
@@ -1411,7 +1432,13 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       className: "xw-errors"
     }, model.errors.slice(0, 4).map((e, i) => /*#__PURE__*/React.createElement("div", {
       key: i
-    }, "! ", e)), model.errors.length > 4 && /*#__PURE__*/React.createElement("div", null, "! …and ", model.errors.length - 4, " more")), /*#__PURE__*/React.createElement("div", {
+    }, "! ", e)), model.errors.length > 4 && /*#__PURE__*/React.createElement("div", null, "! …and ", model.errors.length - 4, " more")), /*#__PURE__*/React.createElement(ClueBar, {
+      entry: P.entry,
+      letters: P.letters,
+      onPrev: () => P.stepEntry(-1),
+      onNext: () => P.stepEntry(1),
+      onToggle: P.toggleDir
+    }), /*#__PURE__*/React.createElement("div", {
       className: "xw-stage",
       onPointerDown: e => {
         if (e.target === e.currentTarget) blurInput();
@@ -1442,13 +1469,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       className: "xw-update"
     }, /*#__PURE__*/React.createElement("span", null, "A new version is ready."), /*#__PURE__*/React.createElement("button", {
       onClick: applyUpdate
-    }, "Reload")), /*#__PURE__*/React.createElement(ClueBar, {
-      entry: P.entry,
-      letters: P.letters,
-      onPrev: () => P.stepEntry(-1),
-      onNext: () => P.stepEntry(1),
-      onToggle: P.toggleDir
-    }), /*#__PURE__*/React.createElement("div", {
+    }, "Reload")), /*#__PURE__*/React.createElement("div", {
       className: "xw-action"
     }, P.solved ? /*#__PURE__*/React.createElement("div", {
       className: "xw-banner"
@@ -1461,10 +1482,15 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       disabled: !P.filled,
       onClick: P.checkAll
     }, P.filled ? "Check puzzle" : "Fill every square to check"), /*#__PURE__*/React.createElement("button", {
-      className: "xw-btn kbd",
-      onClick: kbdOn ? blurInput : focusInput,
-      "aria-label": kbdOn ? "Hide keyboard" : "Show keyboard"
-    }, kbdOn ? "Hide" : "Type")))));
+      className: "xw-btn kbd"
+      /* pointerDown + preventDefault keeps the tap from stealing
+         focus, so the toggle acts on a stable state. */,
+      onPointerDown: e => {
+        e.preventDefault();
+        toggleKeyboard();
+      },
+      "aria-label": kbVisible ? "Hide keyboard" : "Show keyboard"
+    }, kbVisible ? "Hide" : "Type")))));
   }
   ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(CrosswordPlayer));
 })();</script>
