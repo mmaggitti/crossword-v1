@@ -1342,9 +1342,9 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       key: i
     }, "! ", e)), model.errors.length > 4 && /*#__PURE__*/React.createElement("div", null, "! …and ", model.errors.length - 4, " more")), /*#__PURE__*/React.createElement("div", {
       className: "xw-stage",
-      onPointerDown: blurInput
-    }, /*#__PURE__*/React.createElement("div", {
-      onPointerDown: e => e.stopPropagation()
+      onPointerDown: e => {
+        if (e.target === e.currentTarget) blurInput();
+      }
     }, /*#__PURE__*/React.createElement(GridDOM, {
       model: model,
       cursor: P.cursor,
@@ -1352,7 +1352,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       wrong: P.wrong,
       solved: P.solved,
       onCellTap: tapCell
-    }))), /*#__PURE__*/React.createElement("input", {
+    })), /*#__PURE__*/React.createElement("input", {
       ref: inputRef,
       className: "xw-input",
       type: "text",
