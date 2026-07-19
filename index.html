@@ -622,6 +622,18 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   background: var(--canvas);
   transform: translateY(calc(-1 * var(--kb)));
 }
+/* Fills everything below the dock with canvas, without occupying layout
+   space. top:100% anchors it to the dock's own bottom edge, so however the
+   keyboard geometry lands, grid rows can never show through the strip the
+   dock vacates. Clipped by .xw's overflow:hidden. */
+.xw-dock::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; top: 100%;
+  height: 100vh;
+  background: var(--canvas);
+  pointer-events: none;
+}
 
 .xw-update {
   display: flex; align-items: center; gap: var(--space-md);
