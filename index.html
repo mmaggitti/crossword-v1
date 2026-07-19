@@ -558,6 +558,17 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 }
 .xw-cell.cursor .xw-num { color: var(--accent-softest); }
 
+/* The control strip rides above the keyboard on a transform. Transforms do
+   not participate in layout, so lifting this cannot resize or move the
+   board — the keyboard behaves as a pure overlay, which is what native
+   apps do. Opaque background so the grid doesn't show through once lifted. */
+.xw-dock {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 10;
+  background: var(--canvas);
+}
+
 .xw-update {
   flex: 0 0 auto;
   display: flex; align-items: center; gap: 10px;
@@ -1262,15 +1273,19 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       if (kbdOn) focusInput();
     }, [P, kbdOn, focusInput]);
 
-    /* --- viewport: keep the clue bar above the keyboard --------------------
-       The iOS keyboard overlays the page instead of resizing it, so the app
-       shrinks itself to the visual viewport to stay fully visible.          */
+    /* --- keyboard inset ----------------------------------------------------
+       How much of the layout viewport the keyboard currently covers. The
+       layout viewport (window.innerHeight) does not change when the keyboard
+       opens; only the visual viewport shrinks. The difference is the inset. */
 
-    const [vh, setVh] = useState(null);
+    const [kbInset, setKbInset] = useState(0);
     useEffect(() => {
       const vv = typeof window !== "undefined" && window.visualViewport;
       if (!vv) return;
-      const sync = () => setVh(vv.height);
+      const sync = () => {
+        const covered = window.innerHeight - vv.height - vv.offsetTop;
+        setKbInset(covered > 24 ? covered : 0); // ignore chrome-collapse jitter
+      };
       sync();
       vv.addEventListener("resize", sync);
       vv.addEventListener("scroll", sync);
@@ -1318,10 +1333,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       return () => window.removeEventListener("keydown", onKey);
     }, [P]);
     return /*#__PURE__*/React.createElement("div", {
-      className: "xw",
-      style: vh ? {
-        height: vh
-      } : undefined
+      className: "xw"
     }, /*#__PURE__*/React.createElement("style", null, TOKENS), /*#__PURE__*/React.createElement("div", {
       className: "xw-head"
     }, /*#__PURE__*/React.createElement("span", {
@@ -1365,7 +1377,12 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       spellCheck: false,
       "aria-label": "Type letters",
       tabIndex: -1
-    }), updateReady && /*#__PURE__*/React.createElement("div", {
+    }), /*#__PURE__*/React.createElement("div", {
+      className: "xw-dock",
+      style: {
+        transform: `translateY(${-kbInset}px)`
+      }
+    }, updateReady && /*#__PURE__*/React.createElement("div", {
       className: "xw-update"
     }, /*#__PURE__*/React.createElement("span", null, "A new version is ready."), /*#__PURE__*/React.createElement("button", {
       onClick: applyUpdate
@@ -1391,7 +1408,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       className: "xw-btn kbd",
       onClick: kbdOn ? blurInput : focusInput,
       "aria-label": kbdOn ? "Hide keyboard" : "Show keyboard"
-    }, kbdOn ? "Hide" : "Type"))));
+    }, kbdOn ? "Hide" : "Type")))));
   }
   ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(CrosswordPlayer));
 })();</script>
