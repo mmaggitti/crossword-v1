@@ -804,11 +804,15 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 .xw-btn.kbd:active { background: var(--accent-softest); }
 
 .xw-banner {
-  padding: var(--space-md); border-radius: var(--radius);
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-sm);
+  border-radius: var(--radius);
   font-size: var(--text-sm); line-height: 1.35;
   background: var(--accent-softest); color: var(--accent-deepest);
 }
 .xw-banner.bad { background: var(--status-danger); color: var(--ink); }
+/* The solved banner is the whole dock, so it keeps its own spacing. */
+.xw-action > .xw-banner:only-child { margin-bottom: 0; padding: var(--space-md); }
 
 /* Hidden, focusable: this is what raises the real keyboard. It stays inside
    the viewport so focusing it does not make Safari scroll to find it.
@@ -1661,9 +1665,9 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       className: "xw-action"
     }, P.solved ? /*#__PURE__*/React.createElement("div", {
       className: "xw-banner"
-    }, "Solved. Every square checks out.") : P.wrong && P.wrong.size > 0 ? /*#__PURE__*/React.createElement("div", {
+    }, "Solved. Every square checks out.") : /*#__PURE__*/React.createElement(React.Fragment, null, P.wrong && P.wrong.size > 0 && /*#__PURE__*/React.createElement("div", {
       className: "xw-banner bad"
-    }, P.wrong.size, " square", P.wrong.size === 1 ? "" : "s", " ", P.wrong.size === 1 ? "is" : "are", " wrong. Fix them and check again.") : /*#__PURE__*/React.createElement("div", {
+    }, P.wrong.size === 1 ? "1 square is wrong. Fix it and check again." : `${P.wrong.size} squares are wrong. Fix them and check again.`), /*#__PURE__*/React.createElement("div", {
       className: "xw-actionrow"
     }, /*#__PURE__*/React.createElement("button", {
       className: "xw-btn",
@@ -1678,7 +1682,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         toggleKeyboard();
       },
       "aria-label": kbVisible ? "Hide keyboard" : "Show keyboard"
-    }, kbVisible ? "Hide" : "Keyboard")))));
+    }, kbVisible ? "Hide" : "Keyboard"))))));
   }
   ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(CrosswordPlayer));
 })();</script>
