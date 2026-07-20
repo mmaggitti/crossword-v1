@@ -470,6 +470,10 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   --gap-ratio:    0.022;
   --frame-ratio:  0.055;
   --letter-ratio: 0.52;
+  /* Ceiling on one cell, relative to the type scale. Without it a 5x5 on a
+     tablet renders at ~790px, which is both silly and too tall to sit above
+     a keyboard. Never binds on a phone, where width is the constraint. */
+  --cell-max: 4.7;
   --number-ratio: 0.22;
 
   /* screen area the software keyboard covers; JS supplies the measurement,
@@ -573,7 +577,11 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 
 .xw-gridwrap {
   position: relative;
-  --cell: min(calc(100cqw / var(--cols)), calc(100cqh / var(--rows)));
+  --cell: min(
+    calc(100cqw / var(--cols)),
+    calc(100cqh / var(--rows)),
+    calc(var(--u) * var(--cell-max))
+  );
   --letter: calc(var(--cell) * var(--letter-ratio));
   --number: calc(var(--cell) * var(--number-ratio));
 
@@ -776,6 +784,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 .xw-btn {
   flex: 1 1 auto;
   padding: var(--space-md);
+  /* Two lines' worth, always. The hint wraps to two lines and "Check
+     puzzle" doesn't, so without a reserve the row would jump height at the
+     exact moment the last square is filled. */
+  line-height: 1.3;
+  /* border-box, so this has to cover the padding too: two lines of text at
+     1.3 line-height, plus the vertical padding. */
+  min-height: calc(var(--text-md) * 2.6 + var(--space-md) * 2);
+  display: flex; align-items: center; justify-content: center;
   border: 0; border-radius: var(--radius);
   font-family: var(--sans); font-size: var(--text-md); font-weight: 600;
   background: var(--accent); color: var(--surface);
@@ -806,7 +822,10 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
    16px is the one genuine pixel constant in the file — it is the iOS
    threshold below which focusing an input zooms the page. */
 .xw-input {
-  position: absolute; left: 50%; top: 50%;
+  /* Near the top, not the middle: iOS pans the visual viewport to reveal a
+     focused element, and an input sitting mid-page ends up under the
+     keyboard. Up here it is always already visible, so no pan is needed. */
+  position: absolute; left: 50%; top: var(--space-sm);
   width: 1px; height: 1px; padding: 0; border: 0;
   font-size: 16px; opacity: 0; pointer-events: none;
   background: transparent; color: transparent; caret-color: transparent;
@@ -816,6 +835,35 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   padding: var(--space-sm) var(--space-md);
   font-family: var(--mono); font-size: var(--text-xs); line-height: 1.5;
   color: var(--ink); background: var(--status-warn);
+}
+
+/* ===== typing mode =====================================================
+   With the keyboard up, screen height is the scarce resource and the board
+   is what matters. Shedding the header and the clue's metadata line frees
+   enough room to keep the whole board visible at full size, rather than
+   shrinking it. Nothing here touches the grid — the board is width-bound on
+   a phone, so extra vertical room cannot make it grow. */
+
+.xw.typing .xw-head { display: none; }
+.xw.typing .xw-cluetop { display: none; }
+.xw.typing .xw-cluebar {
+  min-height: calc(var(--u) * 4.0);
+  padding: 0 var(--space-md) var(--space-xs);
+}
+.xw.typing .xw-action {
+  padding: var(--space-xs) var(--space-md)
+           calc(var(--space-xs) + env(safe-area-inset-bottom, 0px));
+}
+/* The band held for the SOLVED mark is dead weight while you are still
+   typing. Solving blurs the input, so the reserve is always back before the
+   mark needs it. */
+/* The stage reserves the keyboard's own height while typing, so the grid's
+   container is exactly the region that stays visible. Combined with the
+   width bound in --cell, the board shrinks by precisely the shortfall and
+   no more: on a large phone the chrome we shed is already enough and it
+   does not shrink at all. */
+.xw.typing .xw-stage {
+  padding-bottom: calc(var(--space-md) + var(--kb));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1238,6 +1286,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   }) {
     const activeIdx = model.cellIndex?.[cursor.r]?.[cursor.c]?.[cursor.dir];
 
+    // Selection commits on pointer-UP, and only if the finger stayed put.
+    // Committing on pointerdown meant any gesture that began on a cell — a
+    // scroll, a stray drag — moved the cursor before it could be recognised
+    // as something other than a tap. Slop is a fraction of the viewport, not
+    // a pixel count, so it holds at any density.
+    const down = useRef(null);
+    const slop = () => Math.min(window.innerWidth || 400, window.innerHeight || 700) * 0.022;
+
     // --cols / --rows are puzzle data, not layout constants. Everything
     // geometric is derived from them in CSS against the stage's container
     // size, so the grid fits any viewport with no JS measurement at all.
@@ -1263,11 +1319,25 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         key: `${r},${c}`,
         className: cls
         /* preventDefault stops the browser's own mousedown focus
-           handling from immediately blurring the hidden input we
-           just focused. */,
+           handling from immediately blurring the hidden input. */,
         onPointerDown: e => {
           e.preventDefault();
+          down.current = {
+            x: e.clientX,
+            y: e.clientY,
+            r,
+            c
+          };
+        },
+        onPointerUp: e => {
+          const d = down.current;
+          down.current = null;
+          if (!d || d.r !== r || d.c !== c) return;
+          if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > slop()) return;
           onCellTap(r, c);
+        },
+        onPointerCancel: () => {
+          down.current = null;
         }
       }, ci.number != null && /*#__PURE__*/React.createElement("span", {
         className: "xw-num"
@@ -1316,10 +1386,11 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     }, "›")));
   }
 
-  /* ------------------------------------------------------------- samples --
-     Two puzzles, chosen to prove the parameterization rather than to show off:
-     a 5×5 mini with a rotationally symmetric block pattern, and a 3×3 with no
-     blocks at all. Same code path, no size constants anywhere.                */
+  /* ------------------------------------------------------------- sample --
+     The default puzzle: a 5x5 mini with a rotationally symmetric block
+     pattern. Only the sample is fixed at 5x5 — the renderer still takes rows,
+     cols and minEntryLength from the puzzle, so any size loads via the
+     `puzzle` prop or a share link without a code change.                     */
 
   const SAMPLE_MINI = {
     schemaVersion: 1,
@@ -1349,42 +1420,17 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       }
     }
   };
-  const SAMPLE_TINY = {
-    schemaVersion: 1,
-    id: "tiny-001",
-    title: "Tiny 001",
-    size: {
-      rows: 3,
-      cols: 3
-    },
-    minEntryLength: 2,
-    grid: ["COW", "ARE", "BET"],
-    clues: {
-      across: {
-        "1": "Mooer",
-        "4": "Exist, plurally",
-        "5": "Wager"
-      },
-      down: {
-        "1": "Yellow ride",
-        "2": "Rock worth mining",
-        "3": "Soaked"
-      }
-    }
-  };
 
   /* ------------------------------------------------------------------ app -- */
 
   function CrosswordPlayer({
     puzzle
   }) {
-    const [which, setWhich] = useState("mini");
     const [toast, setToast] = useState(null);
     const [kbdOn, setKbdOn] = useState(false);
     const inputRef = useRef(null);
     const [linked] = useState(() => typeof window === "undefined" ? null : puzzleFromLocation());
-    const source = linked ?? puzzle ?? (which === "mini" ? SAMPLE_MINI : SAMPLE_TINY);
-    const canSwap = !linked && !puzzle;
+    const source = linked ?? puzzle ?? SAMPLE_MINI;
     const P = usePuzzle(source);
     const {
       model
@@ -1402,6 +1448,10 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         setCelebrating(false);
         return;
       }
+      // Inline rather than calling blurInput(): this effect is declared above
+      // that useCallback, so naming it here would hit the temporal dead zone.
+      inputRef.current?.blur();
+      setKbdOn(false);
       const still = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
       if (still) return;
       setCelebrating(true);
@@ -1466,7 +1516,11 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       const vv = typeof window !== "undefined" && window.visualViewport;
       if (!vv) return;
       const sync = () => {
-        const covered = window.innerHeight - vv.height - vv.offsetTop;
+        // offsetTop is deliberately excluded. It becomes non-zero while iOS
+        // pans the visual viewport, and folding it in made the dock drift
+        // mid-gesture. Keyboard height is innerHeight - vv.height regardless
+        // of where the user has panned to.
+        const covered = window.innerHeight - vv.height;
         // A software keyboard always claims a large share of the screen; a
         // collapsing URL bar claims a small one. Discriminating by proportion
         // rather than a pixel count holds on any display.
@@ -1526,7 +1580,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       return () => window.removeEventListener("keydown", onKey);
     }, [P]);
     return /*#__PURE__*/React.createElement("div", {
-      className: "xw",
+      className: "xw" + (kbInset > 0 ? " typing" : ""),
       style: {
         "--kb": `${kbInset}px`
       }
@@ -1536,10 +1590,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       className: "xw-title"
     }, model.title), /*#__PURE__*/React.createElement("span", {
       className: "xw-meta"
-    }, model.rows, "×", model.cols, " · min ", model.minLen, canSwap && /*#__PURE__*/React.createElement("button", {
-      className: "xw-hbtn",
-      onClick: () => setWhich(w => w === "mini" ? "tiny" : "mini")
-    }, "swap"), /*#__PURE__*/React.createElement("button", {
+    }, model.rows, "×", model.cols, /*#__PURE__*/React.createElement("button", {
       className: "xw-hbtn",
       onClick: share
     }, "share"))), toast && /*#__PURE__*/React.createElement("div", {
@@ -1600,7 +1651,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       className: "xw-btn",
       disabled: !P.filled,
       onClick: P.checkAll
-    }, P.filled ? "Check puzzle" : "Fill every square to check"), /*#__PURE__*/React.createElement("button", {
+    }, P.filled ? "Check puzzle" : "Fill every square to check answers"), /*#__PURE__*/React.createElement("button", {
       className: "xw-btn kbd"
       /* pointerDown + preventDefault keeps the tap from stealing
          focus, so the toggle acts on a stable state. */,
@@ -1609,7 +1660,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         toggleKeyboard();
       },
       "aria-label": kbVisible ? "Hide keyboard" : "Show keyboard"
-    }, kbVisible ? "Hide" : "Type")))));
+    }, kbVisible ? "Hide" : "Keyboard")))));
   }
   ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(CrosswordPlayer));
 })();</script>
