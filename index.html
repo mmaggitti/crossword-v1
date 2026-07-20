@@ -1502,10 +1502,12 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       // backspace to delete — otherwise iOS stops emitting delete events.
       el.value = SENTINEL;
     }, [P]);
-    const tapCell = useCallback((r, c) => {
-      P.tapCell(r, c);
-      focusInput(); // a tap on the board always means "I want to type here"
-    }, [P, focusInput]);
+
+    // Tapping a cell moves the cursor and nothing else. The keyboard is raised
+    // deliberately, via the toggle. Cells still refuse pointerdown/mousedown,
+    // so moving around the board while typing does not drop focus and the
+    // keyboard stays up.
+    const tapCell = P.tapCell;
 
     /* --- keyboard inset ----------------------------------------------------
        How much of the layout viewport the keyboard currently covers. The
