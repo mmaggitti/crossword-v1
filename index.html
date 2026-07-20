@@ -564,11 +564,15 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   container-type: size;
   /* Top-anchored, not centred: the board hangs directly off the clue, and
      any slack collects below it — which is where the keyboard goes anyway. */
-  display: flex; align-items: flex-start; justify-content: center;
-  padding: 0 var(--space-md) var(--space-md);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: flex-start;
+  /* The bottom band is reserved for the solved mark whether or not it is
+     showing, so solving cannot resize the board underneath you. */
+  padding: 0 var(--space-md) calc(var(--space-md) + var(--u) * 2.2);
 }
 
 .xw-gridwrap {
+  position: relative;
   --cell: min(calc(100cqw / var(--cols)), calc(100cqh / var(--rows)));
   --letter: calc(var(--cell) * var(--letter-ratio));
   --number: calc(var(--cell) * var(--number-ratio));
@@ -589,6 +593,43 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   transition: border-color .35s ease;
 }
 .xw-gridwrap.solved { border-color: var(--accent); }
+
+/* Phase 1: a green stamp over the whole board. --cell is defined on the
+   grid wrapper, so the type scales with the puzzle rather than the screen. */
+.xw-solve {
+  position: absolute; z-index: 5;
+  /* inset:0 would sit inside the frame, leaving a rim of border showing.
+     Pulling out by the frame width covers the board edge to edge. */
+  inset: calc(var(--cell) * var(--frame-ratio) * -1);
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent); color: var(--surface);
+  font-family: var(--mono); font-weight: 700;
+  font-size: calc(var(--cell) * 0.58);
+  letter-spacing: .18em;
+  pointer-events: none;
+  animation: xw-stamp 1500ms ease forwards;
+}
+@keyframes xw-stamp {
+  0%   { opacity: 0; }
+  10%  { opacity: 1; }
+  74%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Phase 2: the mark that stays, centred under the board on the canvas. */
+.xw-solved-mark {
+  flex: 0 0 auto;
+  margin-top: var(--space-md);
+  font-family: var(--mono); font-weight: 700;
+  font-size: var(--text-lg);
+  letter-spacing: .22em;
+  color: var(--accent);
+  animation: xw-rise 420ms ease both;
+}
+@keyframes xw-rise {
+  from { opacity: 0; transform: translateY(calc(var(--u) * -0.25)); }
+  to   { opacity: 1; transform: none; }
+}
 
 .xw-cell {
   position: relative;
@@ -779,6 +820,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 
 @media (prefers-reduced-motion: reduce) {
   .xw * { transition: none !important; }
+  .xw-solved-mark { animation: none !important; }
 }
 `;
 
@@ -1191,6 +1233,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     letters,
     wrong,
     solved,
+    celebrating,
     onCellTap
   }) {
     const activeIdx = model.cellIndex?.[cursor.r]?.[cursor.c]?.[cursor.dir];
@@ -1204,7 +1247,9 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         "--cols": model.cols,
         "--rows": model.rows
       }
-    }, model.solution.map((row, r) => row.map((sol, c) => {
+    }, celebrating && /*#__PURE__*/React.createElement("div", {
+      className: "xw-solve"
+    }, "SOLVED"), model.solution.map((row, r) => row.map((sol, c) => {
       if (sol === null) return /*#__PURE__*/React.createElement("div", {
         key: `${r},${c}`,
         className: "xw-cell block"
@@ -1348,6 +1393,21 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       updateReady,
       applyUpdate
     } = useAppUpdate();
+
+    // The stamp plays once per solve. Anyone who has asked for reduced motion
+    // skips straight to the persistent mark.
+    const [celebrating, setCelebrating] = useState(false);
+    useEffect(() => {
+      if (!P.solved) {
+        setCelebrating(false);
+        return;
+      }
+      const still = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      if (still) return;
+      setCelebrating(true);
+      const t = setTimeout(() => setCelebrating(false), 1500);
+      return () => clearTimeout(t);
+    }, [P.solved]);
 
     /* --- keyboard: the real one -------------------------------------------
        iOS only raises its keyboard for a focused editable element, so a
@@ -1505,8 +1565,11 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       letters: P.letters,
       wrong: P.wrong,
       solved: P.solved,
+      celebrating: celebrating,
       onCellTap: tapCell
-    })), /*#__PURE__*/React.createElement("input", {
+    }), P.solved && !celebrating && /*#__PURE__*/React.createElement("div", {
+      className: "xw-solved-mark"
+    }, "SOLVED")), /*#__PURE__*/React.createElement("input", {
       ref: inputRef,
       className: "xw-input",
       type: "text",
