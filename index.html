@@ -718,7 +718,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   /* Reserved height. The clue sits above the board now, so a bar that grew
      or shrank between clues would resize the grid underneath it. Sized for
      the two-line case, so every clue occupies the same space. */
-  min-height: calc(var(--u) * 5.0);
+  min-height: calc(var(--u) * 4.35);
 }
 .xw-arrow {
   flex: 0 0 auto; align-self: stretch;
@@ -743,29 +743,22 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Metadata stays quiet — entry id, the run indicator, and progress. */
+/* Metadata stays quiet — it exists only to name what the pill is. */
 .xw-cluetop {
   display: flex; align-items: center; gap: var(--space-sm);
   font-family: var(--mono); font-size: var(--text-xs);
   letter-spacing: .1em; color: var(--muted);
 }
-.xw-ticks { display: flex; gap: calc(var(--u) * 0.12); }
-.xw-tick {
-  width: calc(var(--u) * 0.45); height: calc(var(--u) * 0.18);
-  background: var(--border); border-radius: calc(var(--u) * 0.09);
-}
-.xw-tick.on { background: var(--accent); }
-
 /* The clue as a token: pastel fill, flagship green text. 100vmax gives a
    full pill at any height without a pixel radius. Clamped to two lines so
    a long clue truncates rather than reflowing the board. */
 .xw-cluetext {
   max-width: 100%;
-  padding: var(--space-sm) var(--space-md);
+  padding: calc(var(--space-xs) * 1.4) var(--space-md);
   border-radius: 100vmax;
   background: var(--accent-softest);
   color: var(--accent);
-  font-size: var(--text-xl);
+  font-size: var(--text-lg);
   font-weight: 650;
   line-height: 1.25;
   text-align: left;
@@ -847,7 +840,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 .xw.typing .xw-head { display: none; }
 .xw.typing .xw-cluetop { display: none; }
 .xw.typing .xw-cluebar {
-  min-height: calc(var(--u) * 4.0);
+  min-height: calc(var(--u) * 3.45);
   padding: 0 var(--space-md) var(--space-xs);
 }
 .xw.typing .xw-action {
@@ -1339,6 +1332,11 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         onPointerCancel: () => {
           down.current = null;
         }
+        /* WebKit does not reliably suppress compatibility mouse events
+           when pointerdown is defaulted, and a stray mousedown lands
+           after we have focused — blurring it, which is the flash of
+           keyboard that vanishes. Refuse it here too. */,
+        onMouseDown: e => e.preventDefault()
       }, ci.number != null && /*#__PURE__*/React.createElement("span", {
         className: "xw-num"
       }, ci.number), letters[`${r},${c}`] ?? "");
@@ -1349,16 +1347,11 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 
   function ClueBar({
     entry,
-    letters,
     onPrev,
     onNext,
     onToggle
   }) {
     if (!entry) return null;
-    const done = entry.cells.filter(({
-      r,
-      c
-    }) => letters[`${r},${c}`]).length;
     return /*#__PURE__*/React.createElement("div", {
       className: "xw-cluebar"
     }, /*#__PURE__*/React.createElement("button", {
@@ -1366,12 +1359,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       onClick: onToggle
     }, /*#__PURE__*/React.createElement("div", {
       className: "xw-cluetop"
-    }, /*#__PURE__*/React.createElement("span", null, entry.id), /*#__PURE__*/React.createElement("span", {
-      className: "xw-ticks"
-    }, entry.cells.map((_, i) => /*#__PURE__*/React.createElement("span", {
-      key: i,
-      className: "xw-tick" + (i < done ? " on" : "")
-    }))), /*#__PURE__*/React.createElement("span", null, done, "/", entry.len)), /*#__PURE__*/React.createElement("div", {
+    }, /*#__PURE__*/React.createElement("span", null, "Clue ", entry.id)), /*#__PURE__*/React.createElement("div", {
       className: "xw-cluetext"
     }, entry.clue)), /*#__PURE__*/React.createElement("div", {
       className: "xw-nav"
@@ -1470,6 +1458,11 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       const el = inputRef.current;
       if (!el) return;
       el.value = SENTINEL;
+      // iOS can dismiss the keyboard while leaving the input focused. In that
+      // state focus() does nothing at all — the element is already active — so
+      // the keyboard never returns and tapping cells appears dead. Forcing a
+      // blur/focus transition is what revives it.
+      if (document.activeElement === el && kbInsetRef.current === 0) el.blur();
       el.focus({
         preventScroll: true
       });
@@ -1485,7 +1478,15 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     // one render stale by then — which is why the old Hide button dismissed
     // the keyboard and immediately reopened it.
     const toggleKeyboard = useCallback(() => {
-      if (document.activeElement === inputRef.current) blurInput();else focusInput();
+      const el = inputRef.current;
+      if (!el) return;
+      const focused = document.activeElement === el;
+      // On touch devices "up" means a keyboard is actually covering screen —
+      // focus alone is not enough, because it can outlive the keyboard. On a
+      // desktop there is no software keyboard, so focus is all there is.
+      const coarse = window.matchMedia?.("(pointer: coarse)").matches;
+      const up = coarse ? focused && kbInsetRef.current > 0 : focused;
+      if (up) blurInput();else focusInput();
     }, [blurInput, focusInput]);
     const onInput = useCallback(e => {
       const el = e.target;
@@ -1512,6 +1513,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
        opens; only the visual viewport shrinks. The difference is the inset. */
 
     const [kbInset, setKbInset] = useState(0);
+    // Callbacks need the current inset without waiting for a re-render.
+    const kbInsetRef = useRef(0);
     useEffect(() => {
       const vv = typeof window !== "undefined" && window.visualViewport;
       if (!vv) return;
@@ -1525,7 +1528,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         // collapsing URL bar claims a small one. Discriminating by proportion
         // rather than a pixel count holds on any display.
         const isKeyboard = covered > window.innerHeight * 0.15;
-        setKbInset(isKeyboard ? covered : 0);
+        kbInsetRef.current = isKeyboard ? covered : 0;
+        setKbInset(kbInsetRef.current);
       };
       sync();
       vv.addEventListener("resize", sync);
@@ -1546,6 +1550,19 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     // optimistic signal so the label flips on tap rather than after the
     // keyboard finishes animating.
     const kbVisible = kbInset > 0 || kbdOn;
+
+    // kbdOn is optimistic so the label flips on tap rather than after the
+    // keyboard animates. If no keyboard ever arrives — it was dismissed
+    // without blurring, or the focus did not take — stop claiming it is up,
+    // which is what left the button stuck reading "Hide".
+    useEffect(() => {
+      if (!kbdOn || kbInset > 0) return;
+      if (!window.matchMedia?.("(pointer: coarse)").matches) return;
+      const t = setTimeout(() => {
+        if (kbInsetRef.current === 0) setKbdOn(false);
+      }, 700);
+      return () => clearTimeout(t);
+    }, [kbdOn, kbInset]);
     const share = useCallback(async () => {
       const {
         ok,
@@ -1601,7 +1618,6 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       key: i
     }, "! ", e)), model.errors.length > 4 && /*#__PURE__*/React.createElement("div", null, "! …and ", model.errors.length - 4, " more")), /*#__PURE__*/React.createElement(ClueBar, {
       entry: P.entry,
-      letters: P.letters,
       onPrev: () => P.stepEntry(-1),
       onNext: () => P.stepEntry(1),
       onToggle: P.toggleDir
