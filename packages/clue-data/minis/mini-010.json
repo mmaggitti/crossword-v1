@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "mini-010",
+  "title": "Home Stretch",
+  "author": "Mark",
+  "size": {
+    "rows": 5,
+    "cols": 5
+  },
+  "minEntryLength": 3,
+  "grid": [
+    "..USE",
+    ".FLEE",
+    "TOTAL",
+    "HURT.",
+    "ERA.."
+  ],
+  "clues": {
+    "across": {
+      "1": "Put to work",
+      "4": "Run away",
+      "5": "Grand sum",
+      "6": "Cause pain",
+      "7": "Age in history"
+    },
+    "down": {
+      "1": "Extreme",
+      "2": "Chair",
+      "3": "Slippery swimmer",
+      "4": "Quartet count",
+      "5": "Most common word"
+    }
+  }
+}

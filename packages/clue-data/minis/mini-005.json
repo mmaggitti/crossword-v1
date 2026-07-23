@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "mini-005",
+  "title": "Small Talk",
+  "author": "Mark",
+  "size": {
+    "rows": 5,
+    "cols": 5
+  },
+  "minEntryLength": 3,
+  "grid": [
+    ".BEST",
+    ".RATE",
+    "WAGON",
+    "EVER.",
+    "TERM."
+  ],
+  "clues": {
+    "across": {
+      "1": "Top-rated",
+      "5": "Speed or charge",
+      "6": "Horse-drawn cart",
+      "7": "At any time",
+      "8": "Semester"
+    },
+    "down": {
+      "1": "Courageous",
+      "2": "Keen",
+      "3": "Thunder bringer",
+      "4": "Fingers on two hands",
+      "6": "Soaked"
+    }
+  }
+}

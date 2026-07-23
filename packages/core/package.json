@@ -1,0 +1,15 @@
+{
+  "name": "@crossword/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared crossword engine: pure puzzle parsing, play-state hook, DOM renderer, and the share-link codec. The model layers (parsePuzzle, usePuzzle) hold no DOM references, which is what lets a different renderer drop in.",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "peerDependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "mini-006",
+  "title": "Word Bank",
+  "author": "Mark",
+  "size": {
+    "rows": 5,
+    "cols": 5
+  },
+  "minEntryLength": 3,
+  "grid": [
+    "..TRY",
+    ".TRUE",
+    "BUILT",
+    "ONCE.",
+    "YAK.."
+  ],
+  "clues": {
+    "across": {
+      "1": "Give it a go",
+      "4": "Not false",
+      "5": "Constructed",
+      "6": "One time",
+      "7": "Tibetan ox"
+    },
+    "down": {
+      "1": "Prank",
+      "2": "Regulation",
+      "3": "So far",
+      "4": "Sandwich fish",
+      "5": "Young fellow"
+    }
+  }
+}

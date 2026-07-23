@@ -1,0 +1,66 @@
+name: Deploy to GitHub Pages
+
+# Every push to main runs the full Playwright suite, and only deploys if it
+# passes. The site serves at https://mmaggitti.github.io/crossword-v1/ — the
+# monorepo deploys into the existing crossword-v1 repo so every share link ever
+# minted against that URL keeps resolving (v1.1 reads the same #p= format).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; a newer push supersedes an in-flight run.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
+
+      # Builds the app (base=/) and runs all 9 suites. A failing suite exits
+      # non-zero and fails the job, so a regression never reaches the site.
+      - name: Test (gates the deploy)
+        run: npm test
+
+      # Switches the repo off its legacy branch source to Actions-based Pages
+      # the first time this runs; a no-op thereafter.
+      - uses: actions/configure-pages@v5
+
+      # Rebuild for the Pages sub-path. Only this artifact is uploaded.
+      - name: Build for Pages
+        run: npm run build --workspace player
+        env:
+          BASE_PATH: /crossword-v1/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/player/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

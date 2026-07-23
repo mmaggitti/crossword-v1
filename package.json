@@ -1,0 +1,21 @@
+{
+  "name": "crossword",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Crossword monorepo: a shared engine (packages/core) and the apps built on it (apps/*), each deployed to its own URL under /crossword/.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace player",
+    "build": "npm run build --workspace player",
+    "test": "npm test --workspace player",
+    "test:webkit": "npm run test:webkit --workspace player"
+  },
+  "allowScripts": {
+    "esbuild@0.21.5": true,
+    "fsevents@2.3.2": true,
+    "fsevents@2.3.3": true
+  }
+}

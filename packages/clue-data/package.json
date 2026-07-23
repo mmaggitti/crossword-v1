@@ -1,0 +1,11 @@
+{
+  "name": "@crossword/clue-data",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Bundled puzzle content: the 10 hand-authored 5x5 minis (v1 schema) and the clue-bank word pool they were filled from. minis/*.json are generated from ../../mini-crosswords.md.",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js"
+  }
+}

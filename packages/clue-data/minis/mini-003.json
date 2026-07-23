@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "mini-003",
+  "title": "Common Ground",
+  "author": "Mark",
+  "size": {
+    "rows": 5,
+    "cols": 5
+  },
+  "minEntryLength": 3,
+  "grid": [
+    "..SPA",
+    "..OIL",
+    "ROUTE",
+    "URN..",
+    "BED.."
+  ],
+  "clues": {
+    "across": {
+      "1": "Massage destination",
+      "4": "Motor fluid",
+      "5": "Path taken",
+      "7": "Ash holder",
+      "8": "Sleeping spot"
+    },
+    "down": {
+      "1": "What ears detect",
+      "2": "Peach center",
+      "3": "Pub pour",
+      "5": "Massage lightly",
+      "6": "Mined rock"
+    }
+  }
+}

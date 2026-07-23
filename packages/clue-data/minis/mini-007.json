@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "mini-007",
+  "title": "Night Owl",
+  "author": "Mark",
+  "size": {
+    "rows": 5,
+    "cols": 5
+  },
+  "minEntryLength": 3,
+  "grid": [
+    "OPT..",
+    "FIRE.",
+    "FLOAT",
+    ".LOSE",
+    "..PEA"
+  ],
+  "clues": {
+    "across": {
+      "1": "Choose",
+      "4": "Campfire",
+      "6": "Stay on top of water",
+      "8": "Misplace",
+      "9": "Small green vegetable"
+    },
+    "down": {
+      "1": "Not on",
+      "2": "Tablet",
+      "3": "Scout group",
+      "5": "Comfort",
+      "7": "Steeped drink"
+    }
+  }
+}

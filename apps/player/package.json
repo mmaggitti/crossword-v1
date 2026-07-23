@@ -1,0 +1,29 @@
+{
+  "name": "player",
+  "private": true,
+  "version": "0.1.1",
+  "type": "module",
+  "description": "The crossword player app. Consumes @crossword/core; deploys to /crossword/.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "pretest": "vite build",
+    "test": "for t in layout paint typing clue advance kbd stuck solve wrong; do echo \"--- $t\"; node test/$t-test.cjs || exit 1; done",
+    "pretest:webkit": "vite build",
+    "test:webkit": "ENGINE=webkit node test/layout-test.cjs && ENGINE=webkit node test/paint-test.cjs"
+  },
+  "dependencies": {
+    "@crossword/core": "*",
+    "@crossword/clue-data": "*",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.11",
+    "vite-plugin-pwa": "^0.21.1",
+    "playwright": "^1.49.0",
+    "pngjs": "^7.0.0"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "mini-008",
+  "title": "Open House",
+  "author": "Mark",
+  "size": {
+    "rows": 5,
+    "cols": 5
+  },
+  "minEntryLength": 3,
+  "grid": [
+    "..DIE",
+    "..ANY",
+    "ALIKE",
+    "SIR..",
+    "KEY.."
+  ],
+  "clues": {
+    "across": {
+      "1": "Cube with pips",
+      "4": "Some at all",
+      "5": "Similar",
+      "7": "Formal address",
+      "8": "It opens a lock"
+    },
+    "down": {
+      "1": "Milk section",
+      "2": "Pen filler",
+      "3": "Needle's hole",
+      "5": "Pose a question",
+      "6": "Untruth"
+    }
+  }
+}

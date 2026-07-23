@@ -1,0 +1,11 @@
+# Dependencies & build output
+node_modules/
+dist/
+
+# OS / editor cruft
+.DS_Store
+*.log
+
+# Large upstream corpora and raw export bundles — these live in the vault's
+# _collateral, never in the repo (xd-*.zip alone is ~280 MB).
+*.zip

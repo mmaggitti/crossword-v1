@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "mini-009",
+  "title": "Ground Floor",
+  "author": "Mark",
+  "size": {
+    "rows": 5,
+    "cols": 5
+  },
+  "minEntryLength": 3,
+  "grid": [
+    "..PEG",
+    ".CLAY",
+    "ALARM",
+    "RUIN.",
+    "MEN.."
+  ],
+  "clues": {
+    "across": {
+      "1": "Wooden pin",
+      "4": "Pottery material",
+      "5": "Morning waker",
+      "6": "Wreck",
+      "7": "Guys"
+    },
+    "down": {
+      "1": "Simple",
+      "2": "Work for",
+      "3": "Fitness center",
+      "4": "Detective's lead",
+      "5": "Limb with a hand"
+    }
+  }
+}

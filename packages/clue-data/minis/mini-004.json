@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "mini-004",
+  "title": "Rush Hour",
+  "author": "Mark",
+  "size": {
+    "rows": 5,
+    "cols": 5
+  },
+  "minEntryLength": 3,
+  "grid": [
+    ".PEAR",
+    ".RAGE",
+    "NOTED",
+    "OVEN.",
+    "WENT."
+  ],
+  "clues": {
+    "across": {
+      "1": "Bell-shaped fruit",
+      "5": "Fury",
+      "6": "Well known",
+      "7": "Baking box",
+      "8": "Departed"
+    },
+    "down": {
+      "1": "Demonstrate",
+      "2": "Consumed",
+      "3": "Talent rep",
+      "4": "Fire truck color",
+      "6": "At this moment"
+    }
+  }
+}

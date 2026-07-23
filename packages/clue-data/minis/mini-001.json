@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "mini-001",
+  "title": "Warm-Up",
+  "author": "Mark",
+  "size": {
+    "rows": 5,
+    "cols": 5
+  },
+  "minEntryLength": 3,
+  "grid": [
+    "..CAP",
+    ".ROBE",
+    "FAULT",
+    "ACRE.",
+    "NET.."
+  ],
+  "clues": {
+    "across": {
+      "1": "Bottle topper",
+      "4": "Bathrobe",
+      "5": "Blame, or a tennis miss",
+      "6": "Land measure",
+      "7": "Hoop's mesh"
+    },
+    "down": {
+      "1": "Tennis venue",
+      "2": "Capable",
+      "3": "Household animal",
+      "4": "Sprint event",
+      "5": "Devoted follower"
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "mini-002",
+  "title": "Fair Trade",
+  "author": "Mark",
+  "size": {
+    "rows": 5,
+    "cols": 5
+  },
+  "minEntryLength": 3,
+  "grid": [
+    "ANT..",
+    "COIN.",
+    "ERROR",
+    ".MENU",
+    "..DEN"
+  ],
+  "clues": {
+    "across": {
+      "1": "Colony insect",
+      "4": "Pocket change",
+      "6": "Mistake",
+      "8": "Restaurant list",
+      "9": "Cozy study"
+    },
+    "down": {
+      "1": "Card with a single pip",
+      "2": "Standard",
+      "3": "Ready for bed",
+      "5": "Not one",
+      "7": "Move at a jog"
+    }
+  }
+}
