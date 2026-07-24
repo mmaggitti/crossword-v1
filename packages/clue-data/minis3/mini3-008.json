@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "mini3-008",
+  "title": "Open House",
+  "author": "Mark",
+  "size": {
+    "rows": 3,
+    "cols": 3
+  },
+  "minEntryLength": 3,
+  "grid": [
+    "TAP",
+    "OWE",
+    "WET"
+  ],
+  "clues": {
+    "across": {
+      "1": "Faucet",
+      "4": "Be in debt",
+      "5": "Soaked"
+    },
+    "down": {
+      "1": "Haul away",
+      "2": "Wonder",
+      "3": "Household animal"
+    }
+  }
+}

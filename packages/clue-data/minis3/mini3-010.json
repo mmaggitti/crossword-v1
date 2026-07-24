@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "mini3-010",
+  "title": "Home Stretch",
+  "author": "Mark",
+  "size": {
+    "rows": 3,
+    "cols": 3
+  },
+  "minEntryLength": 3,
+  "grid": [
+    "SOB",
+    "PIE",
+    "ALE"
+  ],
+  "clues": {
+    "across": {
+      "1": "Weep loudly",
+      "4": "Dessert with a crust",
+      "5": "Pub pour"
+    },
+    "down": {
+      "1": "Massage destination",
+      "2": "Motor fluid",
+      "3": "Hive dweller"
+    }
+  }
+}

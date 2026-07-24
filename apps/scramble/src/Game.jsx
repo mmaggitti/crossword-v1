@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { parsePuzzle, TOKENS } from "@crossword/core";
 import Board, { SCRAMBLE_CSS } from "./Board.jsx";
 import {
@@ -36,22 +36,32 @@ function hash(str) {
   return h >>> 0;
 }
 
-export default function Game({ puzzle, onExit }) {
-  const model = useMemo(() => parsePuzzle(puzzle), [puzzle]);
+export default function Game({ puzzle, puzzle3, onExit }) {
+  // 5x5 by default; the header size indicator toggles to the paired 3x3 (an
+  // easier version) and back. Switching size re-parses and re-scrambles.
+  const [size, setSize] = useState(5);
+  const active = size === 3 && puzzle3 ? puzzle3 : puzzle;
+  const model = useMemo(() => parsePuzzle(active), [active]);
   const [mechanic, setMechanic] = useState("swap");
   const [clueMode, setClueMode] = useState("none");
   const [game, setGame] = useState(null);
+  const [scrambleKey, setScrambleKey] = useState("");
   const [history, setHistory] = useState([]);
   const [moves, setMoves] = useState(0);
   const [sel, setSel] = useState(null);
 
-  // (Re)start whenever the puzzle or the mechanic changes.
-  useEffect(() => {
+  // Re-scramble when the active puzzle or mechanic changes. Done during render
+  // (not in an effect) so `game` is never a frame out of sync with the grid —
+  // e.g. toggling a 3x3 back to a 5x5 would otherwise index a 5-row model into
+  // a 3-row board and crash before an effect could catch up.
+  const wantKey = `${active.id}:${mechanic}`;
+  if (scrambleKey !== wantKey) {
+    setScrambleKey(wantKey);
     setGame(scrambleUnsolved(model.solution, mechanic).state);
     setHistory([]);
     setMoves(0);
     setSel(null);
-  }, [model, mechanic]);
+  }
 
   const solved = game ? isSolved(game, model.solution) : false;
 
@@ -118,14 +128,16 @@ export default function Game({ puzzle, onExit }) {
   const jumbled = useMemo(() => {
     const all = model.entries.map((e) => e.clue);
     return all
-      .map((clue) => ({ clue, k: hash(`${puzzle.id}:${clue}`) }))
+      .map((clue) => ({ clue, k: hash(`${active.id}:${clue}`) }))
       .sort((a, b) => a.k - b.k)
       .map((x) => x.clue);
-  }, [model, puzzle.id]);
+  }, [model, active.id]);
 
   const mode = MODES.find((m) => m.id === mechanic);
 
-  if (!game) return null;
+  // Also bail if `game` belongs to the previous size — the during-render reset
+  // above will have queued a fresh scramble and re-rendered.
+  if (!game || game.board.length !== model.rows) return null;
 
   return (
     <div className="xw xws">
@@ -138,7 +150,17 @@ export default function Game({ puzzle, onExit }) {
         )}
         <h1 className="xws-title">{model.title}</h1>
         <div className="xws-headright">
-          <span className="xws-size">{model.cols}×{model.rows}</span>
+          {/* Looks like plain text; tapping it toggles 5x5 <-> 3x3. Deliberately
+              undecorated (a hidden control) — this is a dev surface. */}
+          <button
+            className="xws-size"
+            onClick={() => puzzle3 && setSize(size === 3 ? 5 : 3)}
+            aria-label={puzzle3
+              ? `${model.cols}×${model.rows}. Switch to ${size === 3 ? "5×5" : "3×3"}`
+              : `${model.cols}×${model.rows}`}
+          >
+            {model.cols}×{model.rows}
+          </button>
           <span className="xws-moves" aria-label={`${moves} moves`}>{moves}</span>
         </div>
       </header>

@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "mini3-001",
+  "title": "Warm-Up",
+  "author": "Mark",
+  "size": {
+    "rows": 3,
+    "cols": 3
+  },
+  "minEntryLength": 3,
+  "grid": [
+    "VOW",
+    "AWE",
+    "NET"
+  ],
+  "clues": {
+    "across": {
+      "1": "Solemn promise",
+      "4": "Wonder",
+      "5": "Hoop's mesh"
+    },
+    "down": {
+      "1": "Delivery vehicle",
+      "2": "Be in debt",
+      "3": "Soaked"
+    }
+  }
+}

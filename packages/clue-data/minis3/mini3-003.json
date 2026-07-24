@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "mini3-003",
+  "title": "Common Ground",
+  "author": "Mark",
+  "size": {
+    "rows": 3,
+    "cols": 3
+  },
+  "minEntryLength": 3,
+  "grid": [
+    "PIN",
+    "ACE",
+    "LET"
+  ],
+  "clues": {
+    "across": {
+      "1": "Bowling target",
+      "4": "Card with a single pip",
+      "5": "Permit"
+    },
+    "down": {
+      "1": "Buddy",
+      "2": "Rink surface",
+      "3": "Hoop's mesh"
+    }
+  }
+}

@@ -34,7 +34,12 @@ export const SCRAMBLE_CSS = `
   flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end;
   gap: 2px; line-height: 1;
 }
-.xws-size { font-family: var(--mono); font-size: var(--text-xs); color: var(--muted); }
+.xws-size {
+  /* A hidden toggle: styled as the plain size caption, no button chrome. */
+  background: none; border: 0; padding: 0; margin: 0; line-height: 1;
+  font-family: var(--mono); font-size: var(--text-xs); color: var(--muted);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
 .xws-moves { font-family: var(--mono); font-weight: 600; font-size: var(--text-lg); color: var(--accent-deep); }
 
 .xws-stage {

@@ -72,6 +72,17 @@ function solutionOf(p) {
   ok("19 tiles in swap mode (fully packed)", (await page.locator(".xws-cell.tile").count()) === openCells.length);
   ok("board is not already solved", (await page.locator(".xws-status .done").count()) === 0);
 
+  // --- 3x3 size toggle (hidden control in the header) ----------------------
+  ok("size caption reads 5x5 by default", /5\D5/.test((await page.locator(".xws-size").textContent()).trim()));
+  await page.locator(".xws-size").click();
+  await page.waitForTimeout(80);
+  ok("tapping the caption switches to 3x3", /3\D3/.test((await page.locator(".xws-size").textContent()).trim()));
+  ok("3x3 renders 9 cells", (await page.locator(".xws-cell").count()) === 9);
+  ok("toggle has no button chrome", await page.locator(".xws-size").evaluate((el) => getComputedStyle(el).borderTopWidth === "0px"));
+  await page.locator(".xws-size").click();
+  await page.waitForTimeout(80);
+  ok("tapping again returns to 5x5", (await page.locator(".xws-cell").count()) === 25);
+
   // --- clue modes ----------------------------------------------------------
   ok("clues hidden by default", (await page.locator(".xws-clues").count()) === 0);
   await btn("Jumbled").click();

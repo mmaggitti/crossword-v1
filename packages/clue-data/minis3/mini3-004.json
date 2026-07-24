@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "mini3-004",
+  "title": "Rush Hour",
+  "author": "Mark",
+  "size": {
+    "rows": 3,
+    "cols": 3
+  },
+  "minEntryLength": 3,
+  "grid": [
+    "PIN",
+    "ACE",
+    "WET"
+  ],
+  "clues": {
+    "across": {
+      "1": "Bowling target",
+      "4": "Card with a single pip",
+      "5": "Soaked"
+    },
+    "down": {
+      "1": "Cat's foot",
+      "2": "Rink surface",
+      "3": "Hoop's mesh"
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "mini3-002",
+  "title": "Fair Trade",
+  "author": "Mark",
+  "size": {
+    "rows": 3,
+    "cols": 3
+  },
+  "minEntryLength": 3,
+  "grid": [
+    "PIN",
+    "ACE",
+    "YET"
+  ],
+  "clues": {
+    "across": {
+      "1": "Bowling target",
+      "4": "Card with a single pip",
+      "5": "So far"
+    },
+    "down": {
+      "1": "Compensate",
+      "2": "Rink surface",
+      "3": "Hoop's mesh"
+    }
+  }
+}

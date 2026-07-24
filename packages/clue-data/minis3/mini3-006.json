@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "mini3-006",
+  "title": "Word Bank",
+  "author": "Mark",
+  "size": {
+    "rows": 3,
+    "cols": 3
+  },
+  "minEntryLength": 3,
+  "grid": [
+    "TAP",
+    "OWE",
+    "YET"
+  ],
+  "clues": {
+    "across": {
+      "1": "Faucet",
+      "4": "Be in debt",
+      "5": "So far"
+    },
+    "down": {
+      "1": "Playroom item",
+      "2": "Wonder",
+      "3": "Household animal"
+    }
+  }
+}

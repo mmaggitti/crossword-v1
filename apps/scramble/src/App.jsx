@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { minis, minisById } from "@crossword/clue-data";
+import { minis, minisById, minis3 } from "@crossword/clue-data";
 import Game from "./Game.jsx";
 import Picker from "./Picker.jsx";
 
@@ -24,11 +24,16 @@ export default function App() {
   const route = hash.replace(/^#/, "");
   const toList = () => { window.location.hash = ""; };
 
+  // Each mini is paired 1:1 with a 3x3 companion so the game can offer a size
+  // toggle between the two versions of the same puzzle.
   const mini = minisById[route];
-  if (mini) return <Game key={route} puzzle={mini} onExit={toList} />;
+  if (mini) {
+    const i = minis.indexOf(mini);
+    return <Game key={route} puzzle={mini} puzzle3={minis3[i] ?? null} onExit={toList} />;
+  }
 
   // A stable entry point for the test harness — no back button.
-  if (route === "sample") return <Game key="sample" puzzle={minis[0]} />;
+  if (route === "sample") return <Game key="sample" puzzle={minis[0]} puzzle3={minis3[0] ?? null} />;
 
   return <Picker minis={minis} onPick={(m) => { window.location.hash = m.id; }} />;
 }

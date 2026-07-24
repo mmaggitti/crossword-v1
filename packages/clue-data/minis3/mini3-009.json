@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "mini3-009",
+  "title": "Ground Floor",
+  "author": "Mark",
+  "size": {
+    "rows": 3,
+    "cols": 3
+  },
+  "minEntryLength": 3,
+  "grid": [
+    "TAP",
+    "OWE",
+    "YEN"
+  ],
+  "clues": {
+    "across": {
+      "1": "Faucet",
+      "4": "Be in debt",
+      "5": "Japanese currency"
+    },
+    "down": {
+      "1": "Playroom item",
+      "2": "Wonder",
+      "3": "Ink writer"
+    }
+  }
+}
