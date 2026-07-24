@@ -16,7 +16,8 @@ import { solve, humanizeMove } from "./solver.js";
 const MODES = [
   { id: "swap", label: "Swap", note: "easy", hint: "tap two tiles" },
   { id: "slide", label: "Slide", note: "med", hint: "tap a tile by the gap" },
-  // Blocks travel with their line, so cyclic is well-defined on any grid.
+  // Cyclic rotates a line's MOVABLE cells; under the default Locked empties the
+  // letters cycle and blocks stay pinned (Unlocked rotates the whole line).
   { id: "cyclic", label: "Cyclic", note: "hard", hint: "drag a row or column" },
 ];
 
@@ -24,6 +25,13 @@ const CLUE_MODES = [
   { id: "none", label: "None" },
   { id: "jumbled", label: "Jumbled" },
   { id: "labeled", label: "Labeled" },
+];
+
+// Orthogonal to the mechanic: are the empty (block) cells fixed walls, or
+// movable tokens? Locked (default) pins them; Unlocked lets them move too.
+const EMPTIES = [
+  { id: "locked", label: "Locked" },
+  { id: "unlocked", label: "Unlocked" },
 ];
 
 // Stable pseudo-shuffle: the jumbled pool must not reorder on every render,
@@ -37,6 +45,13 @@ function hash(str) {
   return h >>> 0;
 }
 
+function boardsEqual(a, b) {
+  for (let r = 0; r < a.length; r++)
+    for (let c = 0; c < a[r].length; c++)
+      if (a[r][c] !== b[r][c]) return false;
+  return true;
+}
+
 export default function Game({ puzzle, puzzle3, onExit }) {
   // 5x5 by default; the header size indicator toggles to the paired 3x3 (an
   // easier version) and back. Switching size re-parses and re-scrambles.
@@ -45,6 +60,7 @@ export default function Game({ puzzle, puzzle3, onExit }) {
   const model = useMemo(() => parsePuzzle(active), [active]);
   const [mechanic, setMechanic] = useState("swap");
   const [clueMode, setClueMode] = useState("none");
+  const [emptiesMode, setEmptiesMode] = useState("locked");
   const [game, setGame] = useState(null);
   const [scrambleKey, setScrambleKey] = useState("");
   const [history, setHistory] = useState([]);
@@ -57,10 +73,12 @@ export default function Game({ puzzle, puzzle3, onExit }) {
   // (not in an effect) so `game` is never a frame out of sync with the grid —
   // e.g. toggling a 3x3 back to a 5x5 would otherwise index a 5-row model into
   // a 3-row board and crash before an effect could catch up.
-  const wantKey = `${active.id}:${mechanic}`;
+  // A board scrambled under one movable-set is only guaranteed solvable under
+  // that set, so emptiesMode is part of the key — toggling it re-scrambles.
+  const wantKey = `${active.id}:${mechanic}:${emptiesMode}`;
   if (scrambleKey !== wantKey) {
     setScrambleKey(wantKey);
-    setGame(scrambleUnsolved(model.solution, mechanic).state);
+    setGame(scrambleUnsolved(model.solution, mechanic, undefined, undefined, emptiesMode).state);
     setHistory([]);
     setMoves(0);
     setSel(null);
@@ -99,7 +117,8 @@ export default function Game({ puzzle, puzzle3, onExit }) {
     if (!steps) return;
     const dir = steps > 0 ? 1 : -1;
     let g = game;
-    for (let k = 0; k < Math.abs(steps); k++) g = applyMove(g, { type: "shift", axis, index, dir });
+    for (let k = 0; k < Math.abs(steps); k++) g = applyMove(g, { type: "shift", axis, index, dir }, model.solution);
+    if (boardsEqual(g.board, game.board)) return;   // a <2-movable line rotates to itself
     commit(g);
   };
   const cyclic = useCyclicDrag({
@@ -116,7 +135,7 @@ export default function Game({ puzzle, puzzle3, onExit }) {
     if (game.mechanic === "swap") {
       if (!sel) { setSel([r, c]); return; }
       if (sel[0] === r && sel[1] === c) { setSel(null); return; }
-      commit(applyMove(game, { type: "swap", a: sel, b: [r, c] }));
+      commit(applyMove(game, { type: "swap", a: sel, b: [r, c] }, model.solution));
       setSel(null);
       return;
     }
@@ -125,12 +144,12 @@ export default function Game({ puzzle, puzzle3, onExit }) {
     const legal = legalMoves(game, model.solution).some(
       (m) => m.type === "slide" && m.from[0] === r && m.from[1] === c
     );
-    if (legal) commit(applyMove(game, { type: "slide", from: [r, c] }));
+    if (legal) commit(applyMove(game, { type: "slide", from: [r, c] }, model.solution));
   };
 
   const onTray = () => {
     if (!game || solved || !trayReady) return;
-    commit(applyMove(game, { type: "place" }));
+    commit(applyMove(game, { type: "place" }, model.solution));
   };
 
   const undo = () => {
@@ -143,7 +162,7 @@ export default function Game({ puzzle, puzzle3, onExit }) {
   };
 
   const shuffle = () => {
-    setGame(scrambleUnsolved(model.solution, mechanic).state);
+    setGame(scrambleUnsolved(model.solution, mechanic, undefined, undefined, emptiesMode).state);
     setHistory([]);
     setMoves(0);
     setSel(null);
@@ -180,6 +199,13 @@ export default function Game({ puzzle, puzzle3, onExit }) {
   }, [game, model, ready]);
 
   const mode = MODES.find((m) => m.id === mechanic);
+
+  // The Empties toggle is meaningless with no blocks (Locked ≡ Unlocked), so it
+  // only appears on puzzles that have them (the 5x5 minis do; the 3x3 doesn't).
+  const hasBlocks = useMemo(
+    () => model.solution.some((row) => row.some((c) => c === null)),
+    [model]
+  );
 
   // Bail until `game` matches the current model — the during-render reset above
   // will have queued a fresh scramble and re-rendered.
@@ -331,6 +357,21 @@ export default function Game({ puzzle, puzzle3, onExit }) {
             </button>
           ))}
         </div>
+
+        {hasBlocks && (
+          <div className="xws-row">
+            <span className="xws-label">Empties</span>
+            {EMPTIES.map((em) => (
+              <button
+                key={em.id}
+                className={`xws-btn${em.id === emptiesMode ? " on" : ""}`}
+                onClick={() => setEmptiesMode(em.id)}
+              >
+                {em.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

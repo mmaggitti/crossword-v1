@@ -66,54 +66,55 @@ function mulberry32(seed) {
   }
   ok("mini-001 has a repeated letter to test with", !!pair);
   if (pair) {
-    const swapped = M.applyMove(solvedSwap, { type: "swap", a: pair[0], b: pair[1] });
+    const swapped = M.applyMove(solvedSwap, { type: "swap", a: pair[0], b: pair[1] }, solution);
     ok("swapping two identical letters still reads solved", M.isSolved(swapped, solution));
   }
 
-  // --- solvability by construction, over many seeds -----------------------
+  // --- solvability by construction, over all six mechanic × empties combos --
+  // The movable set is the axis under test: Locked pins blocks (only letters
+  // move); Unlocked makes blocks movable tokens (they travel). Both stay
+  // solvable by construction — the recorded inverse path always re-solves.
   for (const mechanic of M.MECHANICS) {
-    let allSolvable = true;
-    let allScrambled = true;
-    let blocksIntact = true;
-    let blocksMoved = false;
-    let oneGap = true;
+    for (const empties of ["locked", "unlocked"]) {
+      let allSolvable = true;
+      let allScrambled = true;
+      let blocksIntact = true;
+      let blocksMoved = false;
+      let oneGap = true;
 
-    for (let seed = 1; seed <= 40; seed++) {
-      const rnd = mulberry32(seed);
-      const { state, undoPath } = M.scrambleUnsolved(solution, mechanic, undefined, rnd);
-      if (M.isSolved(state, solution)) allScrambled = false;
+      for (let seed = 1; seed <= 40; seed++) {
+        const rnd = mulberry32(seed);
+        const { state, undoPath } = M.scrambleUnsolved(solution, mechanic, undefined, rnd, empties);
+        if (M.isSolved(state, solution)) allScrambled = false;
 
-      // Blocks are fixed in swap/slide (must never move) but travel in cyclic.
-      for (let r = 0; r < solution.length; r++) {
-        for (let c = 0; c < solution[r].length; c++) {
-          const wasBlock = solution[r][c] === null;
-          const isBlock = state.board[r][c] === null;
-          if (wasBlock !== isBlock) {
-            if (mechanic === "cyclic") blocksMoved = true;   // expected — they ride the line
-            else blocksIntact = false;                       // a bug in swap/slide
+        for (let r = 0; r < solution.length; r++) {
+          for (let c = 0; c < solution[r].length; c++) {
+            const wasBlock = solution[r][c] === null;
+            const isBlock = state.board[r][c] === null;
+            if (wasBlock !== isBlock) { blocksMoved = true; blocksIntact = false; }
           }
         }
+
+        // slide must keep exactly one gap while the tray is held
+        if (mechanic === "slide") {
+          let gaps = 0;
+          for (const row of state.board) for (const cell of row) if (cell === "") gaps++;
+          if (gaps !== 1) oneGap = false;
+        }
+
+        // walking the recorded inverse path must land exactly on the solution
+        let s = state;
+        for (const move of undoPath) s = M.applyMove(s, move, solution);
+        if (mechanic === "slide") s = M.applyMove(s, { type: "place" }, solution);
+        if (!M.isSolved(s, solution)) allSolvable = false;
       }
 
-      // slide must keep exactly one gap while the tray is held
-      if (mechanic === "slide") {
-        let gaps = 0;
-        for (const row of state.board) for (const cell of row) if (cell === "") gaps++;
-        if (gaps !== 1) oneGap = false;
-      }
-
-      // walking the recorded inverse path must land exactly on the solution
-      let s = state;
-      for (const move of undoPath) s = M.applyMove(s, move);
-      if (mechanic === "slide") s = M.applyMove(s, { type: "place" });
-      if (!M.isSolved(s, solution)) allSolvable = false;
+      ok(`${mechanic}/${empties}: 40 seeds all scramble away from solved`, allScrambled);
+      ok(`${mechanic}/${empties}: 40 seeds all solvable via recorded path`, allSolvable);
+      if (empties === "locked") ok(`${mechanic}/locked: blocks stay pinned`, blocksIntact);
+      else ok(`${mechanic}/unlocked: a block travels on some seed`, blocksMoved);
+      if (mechanic === "slide") ok(`slide/${empties}: exactly one gap on the board`, oneGap);
     }
-
-    ok(`${mechanic}: 40 seeds all scramble away from solved`, allScrambled);
-    ok(`${mechanic}: 40 seeds all solvable via recorded path`, allSolvable);
-    if (mechanic === "cyclic") ok("cyclic: blocks travel with their line", blocksMoved);
-    else ok(`${mechanic}: blocks never disturbed`, blocksIntact);
-    if (mechanic === "slide") ok("slide: exactly one gap on the board", oneGap);
   }
 
   // --- slide legality ------------------------------------------------------
@@ -136,11 +137,11 @@ function mulberry32(seed) {
     moves.some((m) => m.type === "place") === gapAtHome
   );
 
-  // --- cyclic shift legality ----------------------------------------------
+  // --- cyclic shift legality (row 2 = FAULT, no blocks: locked ≡ unlocked) --
   {
     const cyc = M.createState(solution, "cyclic");
     const before = cyc.board.map((row) => row.slice());
-    const shifted = M.applyMove(cyc, { type: "shift", axis: "row", index: 2, dir: 1 });
+    const shifted = M.applyMove(cyc, { type: "shift", axis: "row", index: 2, dir: 1 }, solution);
     let onlyRow2 = true;
     for (let r = 0; r < solution.length; r++) {
       for (let c = 0; c < solution[r].length; c++) {
@@ -149,20 +150,45 @@ function mulberry32(seed) {
     }
     ok("cyclic: a row shift changes only that row", onlyRow2);
 
-    const back = M.applyMove(shifted, { type: "shift", axis: "row", index: 2, dir: -1 });
+    const back = M.applyMove(shifted, { type: "shift", axis: "row", index: 2, dir: -1 }, solution);
     let restored = true;
     for (let r = 0; r < solution.length; r++)
       for (let c = 0; c < solution[r].length; c++)
         if (back.board[r][c] !== before[r][c]) restored = false;
     ok("cyclic: +1 then -1 restores the line", restored);
 
-    // a column shift touches only that column
-    const colShift = M.applyMove(cyc, { type: "shift", axis: "col", index: 0, dir: 1 });
+    // a column shift touches only that column (col 0 = ..FAN has blocks)
+    const colShift = M.applyMove(cyc, { type: "shift", axis: "col", index: 0, dir: 1 }, solution);
     let onlyCol0 = true;
     for (let r = 0; r < solution.length; r++)
       for (let c = 0; c < solution[r].length; c++)
         if (colShift.board[r][c] !== before[r][c] && c !== 0) onlyCol0 = false;
     ok("cyclic: a column shift changes only that column", onlyCol0);
+  }
+
+  // --- cyclic on a BLOCK-BEARING line: locked pins, unlocked travels -------
+  // Row 0 of mini-001 is `..CAP` = [null,null,"C","A","P"].
+  {
+    const row0 = JSON.stringify(solution[0]);
+    ok("test fixture: row 0 is [_,_,C,A,P]", row0 === JSON.stringify([null, null, "C", "A", "P"]));
+
+    // Locked (default): blocks at cols 0,1 stay null; C,A,P cycle among 2,3,4.
+    const locked = M.createState(solution, "cyclic");
+    const lShift = M.applyMove(locked, { type: "shift", axis: "row", index: 0, dir: 1 }, solution);
+    ok("locked cyclic: row 0 letters cycle to [_,_,P,C,A], blocks pinned",
+       JSON.stringify(lShift.board[0]) === JSON.stringify([null, null, "P", "C", "A"]));
+
+    // Unlocked: the whole line rotates, so a block travels off col 0/1.
+    const unlocked = M.createState(solution, "cyclic", Math.random, "unlocked");
+    const uShift = M.applyMove(unlocked, { type: "shift", axis: "row", index: 0, dir: 1 }, solution);
+    ok("unlocked cyclic: row 0 whole line rotates to [P,_,_,C,A]",
+       JSON.stringify(uShift.board[0]) === JSON.stringify(["P", null, null, "C", "A"]));
+
+    // Legal-move pruning: a line with <2 movable cells offers no shift. Under
+    // locked, a hypothetical all-but-one-block row would be pruned; here every
+    // mini-001 line has >=2 letters, so all 5 rows + 5 cols are offered.
+    const legalCyc = M.legalMoves(locked, solution).filter((m) => m.type === "shift");
+    ok("locked cyclic: every row+col offers a shift (>=2 movable each)", legalCyc.length === 20);
   }
 
   // --- report --------------------------------------------------------------

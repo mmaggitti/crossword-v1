@@ -59,7 +59,7 @@ const SOL3 = ["VOW", "AWE", "NET"].map((w) => w.split("")); // full 3x3, no bloc
   };
   const applies = (state, sol, moves) => {
     let s = state;
-    for (const mv of moves) s = applyMove(s, mv);
+    for (const mv of moves) s = applyMove(s, mv, sol);
     return isSolved(s, sol);
   };
   // INDEPENDENT brute-force minimum (BFS), capped. -1 if the cap is hit.
@@ -73,7 +73,7 @@ const SOL3 = ["VOW", "AWE", "NET"].map((w) => w.split("")); // full 3x3, no bloc
       for (const st of frontier) {
         if (++n > cap) return -1;
         for (const mv of legalMoves(st, sol)) {
-          const ns = applyMove(st, mv);
+          const ns = applyMove(st, mv, sol);
           if (isSolved(ns, sol)) return depth;
           const k = keyOf(ns);
           if (!seen.has(k)) { seen.add(k); next.push(ns); }
@@ -89,7 +89,7 @@ const SOL3 = ["VOW", "AWE", "NET"].map((w) => w.split("")); // full 3x3, no bloc
     const dfs = (st, left) => {
       if (isSolved(st, sol)) return true;
       if (left === 0) return false;
-      for (const mv of legalMoves(st, sol)) if (dfs(applyMove(st, mv), left - 1)) return true;
+      for (const mv of legalMoves(st, sol)) if (dfs(applyMove(st, mv, sol), left - 1)) return true;
       return false;
     };
     return dfs(state, limit);
@@ -134,23 +134,43 @@ const SOL3 = ["VOW", "AWE", "NET"].map((w) => w.split("")); // full 3x3, no bloc
     ok(`${mech}: an already-solved board needs 0 moves`, res.count === 0 && res.optimal);
   }
 
-  // --- 5x5 with blocks: swap is always valid ----------------------------------
+  // --- 5x5 with blocks: swap analytic solution valid, Locked AND Unlocked ------
+  // The Unlocked case is the high-value guard: it fails if solveSwap iterates
+  // openCellsOf (letters only) instead of movableCellsOf — displaced blocks
+  // would never be restored.
   const SOL5 = solutionOf(MINI5);
-  {
-    let valid = true;
+  for (const empties of ["locked", "unlocked"]) {
+    let valid = true, sawDisplacedBlock = false;
     for (let seed = 1; seed <= 12; seed++) {
-      const { state } = scrambleUnsolved(SOL5, "swap", 40, mulberry32(seed * 23));
+      const { state } = scrambleUnsolved(SOL5, "swap", 40, mulberry32(seed * 23), empties);
+      for (let r = 0; r < SOL5.length; r++) for (let c = 0; c < SOL5[r].length; c++)
+        if ((state.board[r][c] === null) !== (SOL5[r][c] === null)) sawDisplacedBlock = true;
       const res = solve(state, SOL5);
       if (!applies(state, SOL5, res.moves)) valid = false;
     }
-    ok("5x5 swap (with blocks): analytic solution always reaches the solution", valid);
+    ok(`5x5 swap ${empties} (with blocks): analytic solution always solves`, valid);
+    if (empties === "unlocked")
+      ok("5x5 swap unlocked: scrambles actually displace blocks (guard is meaningful)", sawDisplacedBlock);
   }
 
-  // --- 5x5 cyclic, shallow: valid, and minimal where the brute can reach -------
+  // --- 5x5 slide Unlocked, shallow: blocks slide, hints stay valid -------------
   {
+    let valid = true, tried = 0;
+    for (let seed = 1; seed <= 10; seed++) {
+      const { state } = scrambleUnsolved(SOL5, "slide", 6, mulberry32(seed * 29), "unlocked");
+      const res = solve(state, SOL5);
+      if (res.exhausted) continue;
+      tried++;
+      if (!applies(state, SOL5, res.moves)) valid = false;
+    }
+    ok(`5x5 slide unlocked (shallow): hints are valid (${tried} solved within budget)`, valid && tried > 0);
+  }
+
+  // --- 5x5 cyclic, shallow: valid + minimal where searchable, Locked & Unlocked -
+  for (const empties of ["locked", "unlocked"]) {
     let valid = true, optimal = true, solvedWithinBudget = 0;
     for (let seed = 1; seed <= 12; seed++) {
-      const { state } = scrambleUnsolved(SOL5, "cyclic", 3, mulberry32(seed * 41));
+      const { state } = scrambleUnsolved(SOL5, "cyclic", 3, mulberry32(seed * 41), empties);
       const res = solve(state, SOL5);
       if (res.exhausted) continue;
       solvedWithinBudget++;
@@ -158,21 +178,25 @@ const SOL3 = ["VOW", "AWE", "NET"].map((w) => w.split("")); // full 3x3, no bloc
       const bm = bruteMin(state, SOL5);
       if (bm >= 0 && res.count !== bm) optimal = false;
     }
-    ok("5x5 cyclic (shallow, blocks travel): hints are valid", valid);
-    ok("5x5 cyclic (shallow): counts match the true minimum where searchable", optimal);
-    ok("5x5 cyclic (shallow): solved within budget", solvedWithinBudget > 0);
+    ok(`5x5 cyclic ${empties} (shallow): hints are valid`, valid);
+    ok(`5x5 cyclic ${empties} (shallow): counts match the true minimum where searchable`, optimal);
+    ok(`5x5 cyclic ${empties} (shallow): solved within budget`, solvedWithinBudget > 0);
   }
 
   // --- 5x5 cyclic, deep: never crash or lie — solve validly OR report exhausted -
+  // A deep unlocked scramble exhausts the BFS budget (each such run is ~18s, the
+  // suite's most expensive path). The exhausted-handling in bfs() is mechanic-
+  // agnostic, so a small smoke check on the biggest state space suffices.
   {
-    let sane = true;
-    for (let seed = 1; seed <= 5; seed++) {
-      const { state } = scrambleUnsolved(SOL5, "cyclic", 12, mulberry32(seed * 7 + 3));
+    let sane = true, sawExhausted = false;
+    for (let seed = 1; seed <= 2; seed++) {
+      const { state } = scrambleUnsolved(SOL5, "cyclic", 12, mulberry32(seed * 7 + 3), "unlocked");
       const res = solve(state, SOL5);
-      if (res.exhausted) { if (res.count !== Infinity || res.optimal) sane = false; }
+      if (res.exhausted) { sawExhausted = true; if (res.count !== Infinity || res.optimal) sane = false; }
       else if (!applies(state, SOL5, res.moves)) sane = false;
     }
-    ok("5x5 cyclic (deep): solver either solves validly or reports exhausted", sane);
+    ok("5x5 cyclic (deep): solves validly or reports exhausted", sane);
+    ok("5x5 cyclic (deep): the exhausted path is actually exercised", sawExhausted);
   }
 
   // --- humanizeMove: readable instruction + cells to highlight -----------------

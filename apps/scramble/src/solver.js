@@ -3,7 +3,8 @@
  * Given a scrambled state it finds a restoring sequence and reports whether that
  * sequence is provably the SHORTEST. It reuses the mechanic's own move system
  * (legalMoves / applyMove / isSolved from mechanics.js), so it automatically
- * respects every quirk — the slide tray, travelling blocks in cyclic, etc.
+ * respects every quirk — the slide tray, the empties mode (pinned vs.
+ * travelling blocks), etc.
  *
  *   solve(state, solution) -> {
  *     moves:     Move[]    // the sequence; moves[0] is the next best move
@@ -22,7 +23,7 @@
  * has a direct optimal answer: keep every already-correct tile in place, then
  * clear the rest cycle by cycle, preferring swaps that seat two tiles at once.
  */
-import { applyMove, isSolved, legalMoves, openCellsOf } from "./mechanics.js";
+import { applyMove, isSolved, legalMoves, movableCellsOf } from "./mechanics.js";
 
 // Caps the BFS. 3x3 reachable spaces (cyclic 90720, slide 90720) sit under this,
 // so a 3x3 is always solved; on 5x5 it bounds the work to a brief on-press pause.
@@ -47,14 +48,17 @@ const cellKey = (cell) => `${cell[0]},${cell[1]}`;
 // donor that also lands home (a 2-cycle) so two tiles are fixed at once.
 function solveSwap(state, solution) {
   const cur = state.board.map((row) => row.slice());
-  const open = openCellsOf(solution);
+  // The movable set — under unlocked this includes block cells (need may be
+  // null, treated as just another value to match), so displaced blocks are
+  // restored too; under locked it is exactly the letter cells.
+  const cells = movableCellsOf(solution, state.emptiesMode ?? "locked");
   const moves = [];
-  for (const [r, c] of open) {
+  for (const [r, c] of cells) {
     if (cur[r][c] === solution[r][c]) continue;
     const need = solution[r][c];
     let two = null;
     let one = null;
-    for (const [r2, c2] of open) {
+    for (const [r2, c2] of cells) {
       if (r2 === r && c2 === c) continue;
       if (cur[r2][c2] !== need) continue;
       if (cur[r2][c2] === solution[r2][c2]) continue; // never disturb a seated tile
@@ -89,7 +93,7 @@ function bfs(state, solution) {
       }
       const stKey = keyOf(st);
       for (const mv of legalMoves(st, solution)) {
-        const ns = applyMove(st, mv);
+        const ns = applyMove(st, mv, solution);
         const k = keyOf(ns);
         if (seen.has(k)) continue;
         seen.add(k);

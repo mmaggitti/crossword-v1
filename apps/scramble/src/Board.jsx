@@ -195,6 +195,7 @@ export const SCRAMBLE_CSS = `
 export default function Board({ model, state, sel, movable, onCell, solved, bind, active, offset, gridRef, hintCells, hintLine }) {
   const { rows, cols, solution, cellIndex } = model;
   const cyclic = state.mechanic === "cyclic";
+  const locked = cyclic && state.emptiesMode === "locked";
   // A cyclic hint outlines the whole line as one frame (see hintOutline below);
   // per-cell rings are only for swap/slide, where individual tiles move.
   const hintSet = !hintLine && hintCells && hintCells.length ? new Set(hintCells) : null;
@@ -204,11 +205,26 @@ export default function Board({ model, state, sel, movable, onCell, solved, bind
     for (let c = 0; c < cols; c++) {
       const key = `${r},${c}`;
       const isHint = hintSet ? hintSet.has(key) : false;
-      // Block by CURRENT board cell, not the solution — in cyclic the blocks
-      // travel with their line, so a block can sit anywhere mid-solve. (For
-      // swap/slide the board block cells are exactly the solution's, unchanged.)
+      // Block by CURRENT board cell, not the solution — under Unlocked a block
+      // is a movable token that can sit anywhere mid-solve; under Locked the
+      // board's blocks always match the solution's, so this is equivalent there.
       if (state.board[r][c] === null) {
-        cells.push(<div key={key} className={`xws-cell blk${isHint ? " hint" : ""}`} />);
+        // Under Unlocked swap/slide a block is a movable token — make it
+        // selectable/slidable, using the same sel/mov/hint affordances as tiles.
+        const interactive = state.emptiesMode === "unlocked" && state.mechanic !== "cyclic";
+        const bcls = ["xws-cell", "blk"];
+        if (isHint) bcls.push("hint");
+        if (interactive && sel && sel[0] === r && sel[1] === c) bcls.push("sel");
+        if (interactive && movable && movable.has(key)) bcls.push("mov");
+        cells.push(
+          <div
+            key={key}
+            className={bcls.join(" ")}
+            data-r={interactive ? r : undefined}
+            data-c={interactive ? c : undefined}
+            onClick={interactive && !solved ? () => onCell(r, c) : undefined}
+          />
+        );
         continue;
       }
       const value = state.board[r][c];
@@ -239,47 +255,114 @@ export default function Board({ model, state, sel, movable, onCell, solved, bind
     }
   }
 
-  // Cyclic drag: the active row/column is drawn as a 3-copy strip translated by
-  // the animated offset, clipped to the line, so the wrap is seamless mid-drag.
+  // Cyclic drag overlay, clipped to the active line. Unlocked → a rigid 3-copy
+  // strip translated uniformly (the whole line, blocks included, travels).
+  // Locked → a per-tile ring carousel: only the letters move, flowing around the
+  // pinned blocks and wrapping at the ends. Both hold their at-rest position
+  // pixel-identical to the about-to-commit board, so the handoff never flashes.
   let overlay = null;
   if (cyclic && active) {
     const isRow = active.axis === "row";
     const n = isRow ? cols : rows;
-    const line = isRow
-      ? state.board[active.index].map((v, i) => ({ v, r: active.index, c: i }))
-      : state.board.map((row, i) => ({ v: row[active.index], r: i, c: active.index }));
-    const strip = [0, 1, 2].flatMap((copy) =>
-      line.map((t, i) => {
-        const isBlk = t.v === null;
-        const home = !isBlk && t.v === solution[t.r][t.c];
-        return (
-          <div
-            key={`${copy}-${i}`}
-            className={`xws-scell xws-cell ${isBlk ? "blk" : "tile"}${home ? " home" : ""}`}
-            style={{ flex: `0 0 ${100 / n}%` }}
-          >
-            {isBlk ? null : t.v}
-          </div>
-        );
-      })
-    );
     const clipStyle = isRow
       ? { left: 0, width: "100%", top: `${(active.index / rows) * 100}%`, height: `${100 / rows}%` }
       : { top: 0, height: "100%", left: `${(active.index / cols) * 100}%`, width: `${100 / cols}%` };
-    overlay = (
-      <div className="xws-clip" style={clipStyle}>
-        <animated.div
-          className={`xws-strip ${isRow ? "row" : "col"}`}
-          style={{
-            transform: offset.to((o) =>
-              isRow ? `translateX(calc(-100% + ${o}px))` : `translateY(calc(-100% + ${o}px))`
-            ),
-          }}
-        >
-          {strip}
-        </animated.div>
-      </div>
-    );
+
+    if (locked) {
+      // Along-line cell geometry (position:absolute % within the clip).
+      const cellStyle = (i) => isRow
+        ? { position: "absolute", top: 0, height: "100%", left: `${(i / n) * 100}%`, width: `${100 / n}%` }
+        : { position: "absolute", left: 0, width: "100%", top: `${(i / n) * 100}%`, height: `${100 / n}%` };
+
+      const lineVals = isRow ? state.board[active.index] : state.board.map((row) => row[active.index]);
+      const slots = [], blockIdx = [];
+      for (let i = 0; i < n; i++) (lineVals[i] === null ? blockIdx : slots).push(i);
+      const k = slots.length;
+      const pitch = active.pitch || 1;
+
+      // Physical coordinate of the letter that started at ring position j, at
+      // phase p (slot-units): bounded to [0, 2n). Non-wrap segments interpolate
+      // slots[a]→slots[a+1]; the wrap segment sweeps off one end and back on.
+      const physCoord = (j, p) => {
+        const q = j + p, fl = Math.floor(q), f = q - fl;
+        const a = ((fl % k) + k) % k, b = (a + 1) % k;
+        let gap = slots[b] - slots[a];
+        if (gap <= 0) gap += n;
+        return slots[a] + f * gap;
+      };
+      const axisTranslate = (d) => (isRow ? `translateX(${d * 100}%)` : `translateY(${d * 100}%)`);
+
+      // Layer A — empty slot backdrop, covering the static line's letters.
+      const backdrop = slots.map((i) => (
+        <div key={`bg-${i}`} className="xws-scell xws-cell tile" style={cellStyle(i)} />
+      ));
+      // Layer B — the moving letters, two copies each (primary + wrap ghost at −n).
+      const letters = slots.flatMap((slotI, j) => {
+        const val = lineVals[slotI];
+        const r = isRow ? active.index : slotI;
+        const c = isRow ? slotI : active.index;
+        const home = val === solution[r][c];
+        const cls = `xws-scell xws-cell tile${home ? " home" : ""}`;
+        const mk = (wrap, key) => (
+          <animated.div
+            key={key}
+            className={cls}
+            style={{
+              ...cellStyle(slotI),
+              transform: offset.to((o) => axisTranslate(physCoord(j, o / pitch) - slotI - wrap)),
+            }}
+          >
+            {val}
+          </animated.div>
+        );
+        return [mk(0, `L${j}`), mk(n, `G${j}`)];
+      });
+      // Layer C — the pinned blocks, redrawn opaque on top so letters pass behind.
+      const covers = blockIdx.map((i) => (
+        <div key={`cov-${i}`} className="xws-scell xws-cell blk" style={cellStyle(i)} />
+      ));
+
+      overlay = (
+        <div className="xws-clip" style={clipStyle}>
+          {backdrop}
+          {letters}
+          {covers}
+        </div>
+      );
+    } else {
+      const line = isRow
+        ? state.board[active.index].map((v, i) => ({ v, r: active.index, c: i }))
+        : state.board.map((row, i) => ({ v: row[active.index], r: i, c: active.index }));
+      const strip = [0, 1, 2].flatMap((copy) =>
+        line.map((t, i) => {
+          const isBlk = t.v === null;
+          const home = !isBlk && t.v === solution[t.r][t.c];
+          return (
+            <div
+              key={`${copy}-${i}`}
+              className={`xws-scell xws-cell ${isBlk ? "blk" : "tile"}${home ? " home" : ""}`}
+              style={{ flex: `0 0 ${100 / n}%` }}
+            >
+              {isBlk ? null : t.v}
+            </div>
+          );
+        })
+      );
+      overlay = (
+        <div className="xws-clip" style={clipStyle}>
+          <animated.div
+            className={`xws-strip ${isRow ? "row" : "col"}`}
+            style={{
+              transform: offset.to((o) =>
+                isRow ? `translateX(calc(-100% + ${o}px))` : `translateY(calc(-100% + ${o}px))`
+              ),
+            }}
+          >
+            {strip}
+          </animated.div>
+        </div>
+      );
+    }
   }
 
   // Cyclic hint: one outline around the whole row/column. The carousel moves as

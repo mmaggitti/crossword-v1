@@ -186,6 +186,65 @@ function solutionOf(p) {
   await page.waitForTimeout(800);   // let the snap spring settle and commit
   ok("a cyclic drag commits a move", Number((await page.locator(".xws-moves").textContent()).trim()) >= 1);
 
+  // A Locked drag on a BLOCK-BEARING row (row 0 = ..CAP) exercises the per-tile
+  // carousel where blocks partition the line (k < n) — letters cycle, blocks pin.
+  {
+    const movesBefore = Number((await page.locator(".xws-moves").textContent()).trim());
+    const row0Y = gb.y + gb.height * 0.1;
+    const sx = gb.x + gb.width * 0.5;
+    await page.mouse.move(sx, row0Y);
+    await page.mouse.down();
+    for (let i = 1; i <= 6; i++) { await page.mouse.move(sx + cw * 1.4 * (i / 6), row0Y); await page.waitForTimeout(16); }
+    await page.mouse.up();
+    await page.waitForTimeout(800);
+    ok("a Locked drag on a block-bearing row commits", Number((await page.locator(".xws-moves").textContent()).trim()) > movesBefore);
+    const r0 = await page.evaluate(() => {
+      const cs = [...document.querySelectorAll(".xws-grid > .xws-cell")];
+      return [cs[0].classList.contains("blk"), cs[1].classList.contains("blk")];
+    });
+    ok("Locked drag keeps row-0 blocks pinned (cols 0,1)", r0[0] && r0[1]);
+  }
+
+  // --- Empties: Locked / Unlocked (the movable-set toggle) -----------------
+  // Still in Cyclic on the 5x5. The row only appears on puzzles with blocks.
+  const solBlockKeys = [];
+  for (let r = 0; r < solution.length; r++)
+    for (let c = 0; c < solution[r].length; c++)
+      if (solution[r][c] === null) solBlockKeys.push(`${r},${c}`);
+  solBlockKeys.sort();
+  const currentBlocks = () => page.evaluate(() => {
+    const out = [];
+    [...document.querySelectorAll(".xws-grid > .xws-cell")].forEach((el, n) => {
+      if (el.classList.contains("blk")) out.push(`${Math.floor(n / 5)},${n % 5}`);
+    });
+    return out.sort();
+  });
+  ok("Empties row appears (Locked + Unlocked)", (await btn("Locked").count()) === 1 && (await btn("Unlocked").count()) === 1);
+  ok("cyclic Locked: 6 blocks pinned to solution positions",
+     JSON.stringify(await currentBlocks()) === JSON.stringify(solBlockKeys));
+
+  await btn("Unlocked").click();
+  await page.waitForTimeout(120);
+  const unlockedBlocks = await currentBlocks();
+  ok("cyclic Unlocked: still 6 blocks", unlockedBlocks.length === 6);
+  ok("cyclic Unlocked: at least one block has travelled off its solution cell",
+     JSON.stringify(unlockedBlocks) !== JSON.stringify(solBlockKeys));
+  ok("toggling Empties re-scrambles (move counter back to 0)",
+     (await page.locator(".xws-moves").textContent()).trim() === "0");
+
+  // Unlocked Swap: a block becomes a selectable, movable token.
+  await btn("Swap").click();
+  await page.waitForTimeout(80);
+  ok("Unlocked swap: all 6 block cells are interactive", (await page.locator(".xws-cell.blk[data-r]").count()) === 6);
+  await page.locator(".xws-cell.blk[data-r]").first().click();
+  await page.waitForTimeout(80);
+  ok("Unlocked swap: clicking a block selects it", (await page.locator(".xws-cell.blk.sel").count()) === 1);
+
+  // Back to Locked so the hint section runs against the original behavior.
+  await btn("Locked").click();
+  await page.waitForTimeout(100);
+  ok("Locked swap: blocks are inert again (no data-r)", (await page.locator(".xws-cell.blk[data-r]").count()) === 0);
+
   // --- hint solver: next move + minimum count ------------------------------
   // Swap (analytic, always solvable): the hint names two tiles and a minimum
   // count; following that swap must drop the minimum by exactly one.

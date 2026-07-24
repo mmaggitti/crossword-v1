@@ -7,8 +7,10 @@ import { useSpring } from "@react-spring/web";
  * `@use-gesture` captures the drag, locks to the dominant axis, and reports the
  * movement + release velocity; `@react-spring` drives the live `offset` (px
  * along the line) and springs it to the nearest whole-cell step on release,
- * carrying velocity for a little momentum. The seamless wrap is rendered by the
- * Board from `active` + `offset` (a 3-copy strip); this hook owns the physics.
+ * carrying velocity for a little momentum. The Board renders the drag from
+ * `active` + `offset` — a rigid 3-copy strip when the empties travel (Unlocked),
+ * or a per-tile ring carousel when they're Locked; this hook owns the physics
+ * and surfaces `pitch` (px per cell) so the Board can turn `offset` into a phase.
  *
  * onShift(axis, index, steps): apply `steps` discrete shifts to the board
  *   (steps < 0 means the opposite direction).
@@ -17,7 +19,7 @@ import { useSpring } from "@react-spring/web";
  * pixels into cell steps.
  */
 export function useCyclicDrag({ gridRef, rows, cols, enabled, onShift }) {
-  const [active, setActive] = useState(null);      // { axis:"row"|"col", index }
+  const [active, setActive] = useState(null);      // { axis:"row"|"col", index, pitch }
   const [{ offset }, api] = useSpring(() => ({ offset: 0 }), []);
   const lock = useRef(null);                        // { axis, index, pitch }
 
@@ -42,7 +44,7 @@ export function useCyclicDrag({ gridRef, rows, cols, enabled, onShift }) {
         // strip back to 0 would flash the line to its start position for a frame
         // before React commits the shift. See the onRest note below.
         api.set({ offset: 0 });
-        setActive({ axis, index });
+        setActive({ axis, index, pitch });
       }
 
       const L = lock.current;
