@@ -128,5 +128,17 @@ body{background:var(--canvas);color:var(--ink);font-family:var(--sans);display:f
   setMode('swap');
 })();
 </script>
+<script>
+  // Register the site-wide network-first service worker (shipped by the player
+  // at the site root; its scope covers /dev/). Keeps an installed /dev/ home
+  // screen app fresh. No-op anywhere it isn't served under /crossword-v1/.
+  if ("serviceWorker" in navigator && location.pathname.startsWith("/crossword-v1/")) {
+    addEventListener("load", function () {
+      navigator.serviceWorker
+        .register("/crossword-v1/sw.js", { scope: "/crossword-v1/" })
+        .catch(function () {});
+    });
+  }
+</script>
 </body>
 </html>

@@ -27,5 +27,19 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <script>
+      // The player (at the site root) ships a network-first service worker whose
+      // scope covers this app. Register it here too, so an installed /scramble/
+      // home-screen app updates itself instead of serving a stale cached page.
+      // Guarded to the deployed sub-path: on localhost dev (served at "/") the
+      // worker doesn't exist, so this is a no-op.
+      if ("serviceWorker" in navigator && location.pathname.startsWith("/crossword-v1/")) {
+        addEventListener("load", function () {
+          navigator.serviceWorker
+            .register("/crossword-v1/sw.js", { scope: "/crossword-v1/" })
+            .catch(function () {});
+        });
+      }
+    </script>
   </body>
 </html>

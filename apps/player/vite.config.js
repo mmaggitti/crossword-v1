@@ -44,17 +44,51 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,png,svg,webmanifest}"],
-        // The app is fully static, so precaching everything makes it work
-        // offline from the first visit onward.
+        // Precache the player's immutable, hash-named assets (fast loads + full
+        // offline), but NOT any HTML — HTML is served network-first below, so a
+        // new deploy shows up immediately in installed apps instead of being
+        // pinned by a cached document. cleanupOutdatedCaches drops old precaches.
+        globPatterns: ["**/*.{js,css,png,svg,webmanifest}"],
         cleanupOutdatedCaches: true,
-        // The player is a hash-router SPA served at the site root, so its
-        // navigation fallback (serve index.html for any navigation) must NOT
-        // swallow sibling pages under /crossword-v1/ — the /dev/ prototype, and
-        // a future /scramble/. Without this denylist the service worker serves
-        // the player for those paths too, so they're unreachable once it's cached.
-        navigateFallback: "index.html",
-        navigateFallbackDenylist: [/^\/crossword-v1\/.+/]
+        // Disable VitePWA's default SPA fallback (it would register a
+        // NavigationRoute serving a precached index.html, which both intercepts
+        // navigations before the network-first rule below and no longer exists
+        // in the precache). null turns it off.
+        navigateFallback: null,
+        // This SW's scope (/crossword-v1/) covers three
+        // separate apps — the player, /scramble/, and /dev/ — so there is no one
+        // shell to fall back to. Each document is fetched network-first per URL
+        // (rule 1), which is also what keeps installed apps from going stale.
+        runtimeCaching: [
+          {
+            // Network-first HTML across the whole scope (player, /scramble/,
+            // /dev/): always fetch the latest document online, fall back to the
+            // last cached copy offline. This is the anti-stale rule.
+            urlPattern: ({ request, url }) =>
+              url.pathname.startsWith("/crossword-v1/") &&
+              (request.mode === "navigate" || request.destination === "document"),
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "crossword-v1-html",
+              networkTimeoutSeconds: 4,
+              cacheableResponse: { statuses: [0, 200] },
+              expiration: { maxEntries: 32 }
+            }
+          },
+          {
+            // The sibling apps (/scramble/, /dev/) are assembled in after the
+            // player build, so they are never in this precache. Serve their
+            // assets network-first too, so their latest hashed bundles load
+            // without a manual cache clear (cached copies cover offline).
+            urlPattern: ({ url }) => /^\/crossword-v1\/(scramble|dev)\//.test(url.pathname),
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "crossword-v1-siblings",
+              cacheableResponse: { statuses: [0, 200] },
+              expiration: { maxEntries: 128 }
+            }
+          }
+        ]
       }
     })
   ]
