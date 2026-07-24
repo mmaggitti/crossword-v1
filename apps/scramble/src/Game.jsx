@@ -198,24 +198,31 @@ export default function Game({ puzzle, puzzle3, onExit }) {
 
       {(clueMode !== "none" || found.size > 0) && (
         <div className="xws-clues">
-          {clueMode === "labeled" ? (
-            <div className="xws-cols">
-              <div>
-                {model.entries.filter((e) => e.dir === "across").map((e) => (
-                  <div key={e.id} className={found.has(e.id) ? "got" : ""}><b>{e.number}A</b> {e.clue}</div>
-                ))}
-              </div>
-              <div>
-                {model.entries.filter((e) => e.dir === "down").map((e) => (
-                  <div key={e.id} className={found.has(e.id) ? "got" : ""}><b>{e.number}D</b> {e.clue}</div>
-                ))}
-              </div>
+          {clueMode === "jumbled" ? (
+            // Jumbled: every clue, no order, no labels — each turns green once found.
+            <div className="xws-pool">
+              {jumbled.map((e) => (
+                <span className={`xws-chip${found.has(e.id) ? " got" : ""}`} key={e.id}>{e.clue}</span>
+              ))}
             </div>
           ) : (
-            // Jumbled shows every clue; None shows only found ones (they fill in).
-            <div className="xws-pool">
-              {(clueMode === "none" ? jumbled.filter((e) => found.has(e.id)) : jumbled).map((e) => (
-                <span className={`xws-chip${found.has(e.id) ? " got" : ""}`} key={e.id}>{e.clue}</span>
+            // Labeled lists every clue by its location. None shares the same
+            // by-location layout but keeps each clue's text hidden until its word is
+            // found, so a found clue pops in at its correct slot (the number anchors
+            // the position). Unfound None slots show only their dim number.
+            <div className="xws-cols">
+              {["across", "down"].map((dir) => (
+                <div key={dir}>
+                  {model.entries.filter((e) => e.dir === dir).map((e) => {
+                    const got = found.has(e.id);
+                    const show = clueMode === "labeled" || got;
+                    return (
+                      <div key={e.id} className={got ? "got" : show ? "" : "pending"}>
+                        <b>{e.number}{dir === "across" ? "A" : "D"}</b>{show ? ` ${e.clue}` : ""}
+                      </div>
+                    );
+                  })}
+                </div>
               ))}
             </div>
           )}

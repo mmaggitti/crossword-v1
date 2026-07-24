@@ -156,6 +156,15 @@ function solutionOf(p) {
     console.log("   " + text.trim());
   }
 
+  // --- None mode reveals found clues in their by-location slots ------------
+  // Everything is solved now, so None shows all 10 clues in the numbered columns
+  // layout, each revealed (green), with no pending (dim, textless) slots left.
+  await btn("None").click();
+  await page.waitForTimeout(60);
+  ok("None uses the by-location columns layout", (await page.locator(".xws-cols").count()) === 1);
+  ok("None reveals every found clue in place", (await page.locator(".xws-cols .got").count()) === 10);
+  ok("no pending slots once every word is found", (await page.locator(".xws-cols .pending").count()) === 0);
+
   // --- cyclic mode ---------------------------------------------------------
   // The seamless-wrap render and the spring/momentum feel are device-verified
   // (like the iOS keyboard); here we prove the wiring: it renders, hides the

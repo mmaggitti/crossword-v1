@@ -127,6 +127,13 @@ export const SCRAMBLE_CSS = `
 .xws-chip.got { background: var(--accent-softest); border-color: var(--accent-soft); color: var(--accent-deepest); font-weight: 600; }
 .xws-cols .got { background: var(--accent-softest); color: var(--accent-deepest); border-radius: calc(var(--radius) * 0.5); }
 .xws-cols .got b { color: var(--accent-deep); }
+/* None mode: an unfound clue holds its slot as a dim number until its word lands. */
+.xws-cols .pending { color: var(--muted); opacity: .5; }
+.xws-cols .pending b { color: var(--muted); }
+/* Reveal: a clue pops into place the moment its word is completed. */
+@keyframes xws-pop { from { opacity: 0; transform: translateY(3px) scale(.97); } to { opacity: 1; transform: none; } }
+.xws-chip.got, .xws-cols .got { animation: xws-pop .26s var(--ease, ease-out) both; }
+@media (prefers-reduced-motion: reduce) { .xws-chip.got, .xws-cols .got { animation: none; } }
 
 .xws-dock {
   flex: 0 0 auto; display: flex; flex-direction: column; gap: var(--space-xs);
