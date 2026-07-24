@@ -1,0 +1,25 @@
+{
+  "name": "scramble",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The scramble game: every letter starts on the board shuffled and you rearrange them into the solution. Consumes @crossword/core; deploys to /crossword-v1/scramble/.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "pretest": "vite build",
+    "test": "for t in mechanics ui; do echo \"--- $t\"; node test/$t-test.cjs || exit 1; done"
+  },
+  "dependencies": {
+    "@crossword/core": "*",
+    "@crossword/clue-data": "*",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.11",
+    "playwright": "^1.49.0"
+  }
+}

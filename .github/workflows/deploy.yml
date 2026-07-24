@@ -46,14 +46,24 @@ jobs:
       - uses: actions/configure-pages@v5
 
       # Rebuild for the Pages sub-path. Only this artifact is uploaded.
-      - name: Build for Pages
+      - name: Build player for Pages
         run: npm run build --workspace player
         env:
           BASE_PATH: /crossword-v1/
 
-      # Fold the standalone dev prototype into the artifact at /crossword-v1/dev/.
-      - name: Add dev prototype
-        run: mkdir -p apps/player/dist/dev && cp dev/index.html apps/player/dist/dev/index.html
+      - name: Build scramble for Pages
+        run: npm run build --workspace scramble
+        env:
+          BASE_PATH: /crossword-v1/scramble/
+
+      # One Pages artifact holds every app: the player at the site root, the
+      # scramble game at /scramble/, and the throwaway prototype at /dev/.
+      - name: Assemble site
+        run: |
+          mkdir -p apps/player/dist/scramble
+          cp -r apps/scramble/dist/. apps/player/dist/scramble/
+          mkdir -p apps/player/dist/dev
+          cp dev/index.html apps/player/dist/dev/index.html
 
       - uses: actions/upload-pages-artifact@v3
         with:

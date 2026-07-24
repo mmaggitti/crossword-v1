@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- viewport-fit=cover is what makes env(safe-area-inset-*) resolve to
+         real values, which the board and dock padding rely on. -->
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#FBF9F4" />
+    <meta name="description" content="Rearrange the scrambled letters into the crossword." />
+
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Scramble" />
+
+    <title>Crossword Scramble</title>
+    <style>
+      html, body {
+        height: 100%;
+        margin: 0;
+        background: #FBF9F4;
+        overscroll-behavior: none;   /* no rubber-banding while tapping tiles */
+      }
+      #root { position: relative; height: 100%; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

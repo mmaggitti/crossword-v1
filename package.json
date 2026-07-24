@@ -9,8 +9,10 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspace player",
+    "dev:scramble": "npm run dev --workspace scramble",
     "build": "npm run build --workspace player",
-    "test": "npm test --workspace player",
+    "build:scramble": "npm run build --workspace scramble",
+    "test": "npm test --workspace player && npm test --workspace scramble",
     "test:webkit": "npm run test:webkit --workspace player"
   },
   "allowScripts": {
