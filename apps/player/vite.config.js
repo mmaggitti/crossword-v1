@@ -47,7 +47,14 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html,png,svg,webmanifest}"],
         // The app is fully static, so precaching everything makes it work
         // offline from the first visit onward.
-        cleanupOutdatedCaches: true
+        cleanupOutdatedCaches: true,
+        // The player is a hash-router SPA served at the site root, so its
+        // navigation fallback (serve index.html for any navigation) must NOT
+        // swallow sibling pages under /crossword-v1/ — the /dev/ prototype, and
+        // a future /scramble/. Without this denylist the service worker serves
+        // the player for those paths too, so they're unreachable once it's cached.
+        navigateFallback: "index.html",
+        navigateFallbackDenylist: [/^\/crossword-v1\/.+/]
       }
     })
   ]
