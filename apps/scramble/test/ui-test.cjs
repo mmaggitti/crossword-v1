@@ -104,7 +104,7 @@ function solutionOf(p) {
     return all.indexOf(document.querySelector(".xws-cell.gap"));
   });
   ok("sliding a tile moves the gap", gapBefore !== gapAfter);
-  ok("the move is counted", /Moves: 1/.test(await page.locator(".xws-status").textContent()));
+  ok("the move is counted", (await page.locator(".xws-moves").textContent()).trim() === "1");
 
   // Undo must put the gap back.
   await btn("Undo").click();
@@ -114,7 +114,7 @@ function solutionOf(p) {
     return all.indexOf(document.querySelector(".xws-cell.gap"));
   });
   ok("undo restores the gap", gapUndone === gapBefore);
-  ok("undo decrements the counter", /Moves: 0/.test(await page.locator(".xws-status").textContent()));
+  ok("undo decrements the counter", (await page.locator(".xws-moves").textContent()).trim() === "0");
 
   // --- a real solve, in swap mode -----------------------------------------
   await btn("Swap").click();

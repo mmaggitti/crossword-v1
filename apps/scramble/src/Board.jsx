@@ -30,7 +30,12 @@ export const SCRAMBLE_CSS = `
   text-transform: uppercase; color: var(--accent-deepest); font-size: var(--text-lg);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.xws-mode { flex: 0 0 auto; font-family: var(--mono); font-size: var(--text-xs); color: var(--muted); }
+.xws-headright {
+  flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end;
+  gap: 2px; line-height: 1;
+}
+.xws-size { font-family: var(--mono); font-size: var(--text-xs); color: var(--muted); }
+.xws-moves { font-family: var(--mono); font-weight: 600; font-size: var(--text-lg); color: var(--accent-deep); }
 
 .xws-stage {
   flex: 1 1 auto; min-height: 0; container-type: size;
@@ -91,6 +96,9 @@ export const SCRAMBLE_CSS = `
 }
 .xws-pool { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
 .xws-chip {
+  /* Grow from content width so every wrapped row fills margin-to-margin
+     (justified), while longer clues still get proportionally wider pills. */
+  flex: 1 1 auto; text-align: center;
   padding: calc(var(--space-xs) * 0.9) var(--space-sm);
   background: var(--surface); border: var(--hairline) solid var(--border);
   border-radius: 999px;

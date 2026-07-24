@@ -137,8 +137,36 @@ export default function Game({ puzzle, onExit }) {
           <button className="xws-back" onClick={onExit}>‹ Puzzles</button>
         )}
         <h1 className="xws-title">{model.title}</h1>
-        <span className="xws-mode">{model.cols}×{model.rows}</span>
+        <div className="xws-headright">
+          <span className="xws-size">{model.cols}×{model.rows}</span>
+          <span className="xws-moves" aria-label={`${moves} moves`}>{moves}</span>
+        </div>
       </header>
+
+      {clueMode !== "none" && (
+        <div className="xws-clues">
+          {clueMode === "jumbled" ? (
+            <div className="xws-pool">
+              {jumbled.map((clue, i) => (
+                <span className="xws-chip" key={i}>{clue}</span>
+              ))}
+            </div>
+          ) : (
+            <div className="xws-cols">
+              <div>
+                {model.entries.filter((e) => e.dir === "across").map((e) => (
+                  <div key={e.id}><b>{e.number}A</b> {e.clue}</div>
+                ))}
+              </div>
+              <div>
+                {model.entries.filter((e) => e.dir === "down").map((e) => (
+                  <div key={e.id}><b>{e.number}D</b> {e.clue}</div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <Board
         model={model}
@@ -170,40 +198,12 @@ export default function Game({ puzzle, onExit }) {
         </div>
       )}
 
-      {clueMode !== "none" && (
-        <div className="xws-clues">
-          {clueMode === "jumbled" ? (
-            <div className="xws-pool">
-              {jumbled.map((clue, i) => (
-                <span className="xws-chip" key={i}>{clue}</span>
-              ))}
-            </div>
-          ) : (
-            <div className="xws-cols">
-              <div>
-                {model.entries.filter((e) => e.dir === "across").map((e) => (
-                  <div key={e.id}><b>{e.number}A</b> {e.clue}</div>
-                ))}
-              </div>
-              <div>
-                {model.entries.filter((e) => e.dir === "down").map((e) => (
-                  <div key={e.id}><b>{e.number}D</b> {e.clue}</div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       <div className="xws-dock">
         <div className="xws-status">
           {solved ? (
             <span className="done">✓ Solved in {moves} moves</span>
           ) : (
-            <>
-              <span>Moves: {moves}</span>
-              <span>{mode?.hint}</span>
-            </>
+            <span>{mode?.hint}</span>
           )}
         </div>
 
