@@ -65,7 +65,10 @@ export const SCRAMBLE_CSS = `
   border-radius: calc(var(--radius) * 0.6);
   user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
 }
-.xws-cell.blk { background: var(--accent-deepest); }
+/* Blocks carry the same hairline as tiles, so two adjacent blocks read as two
+   cells (a gray seam between them) rather than merging into one dark shape —
+   most visible in cyclic mode, where the grid gap is 0. */
+.xws-cell.blk { background: var(--accent-deepest); border: var(--hairline) solid var(--border); }
 .xws-cell.gap { background: var(--canvas); border: max(1px, calc(var(--u) * 0.05)) dashed var(--border); }
 .xws-cell.tile {
   background: var(--surface); border: var(--hairline) solid var(--border); cursor: pointer;
