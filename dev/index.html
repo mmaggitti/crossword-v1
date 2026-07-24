@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#FBF9F4">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Scramble">
+<title>Scramble — dev prototype</title>
+<style>
+:root{--canvas:#FBF9F4;--surface:#fff;--ink:#111;--muted:#818180;--border:#CFCFCF;--accent:#076B3B;--accent-soft:#6BC58C;--accent-softest:#CDE8D4;--accent-deepest:#01341A;--block:#14261c;--mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;--sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--canvas);color:var(--ink);font-family:var(--sans);display:flex;flex-direction:column;align-items:center;padding:max(16px,env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+.wrap{width:100%;max-width:360px}
+.head{margin:8px 0 16px}
+.title{font-family:var(--mono);font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-deepest);font-size:20px;margin:0}
+.sub{color:var(--muted);font-size:13px;margin-top:4px}
+.modes{display:flex;gap:6px;margin-bottom:14px}
+.mode{flex:1;padding:9px 4px;font-size:13px;border:.5px solid var(--border);background:var(--surface);color:var(--accent);border-radius:8px;cursor:pointer;font-family:var(--sans)}
+.mode.active{background:var(--accent-softest);border-color:var(--accent);color:var(--accent-deepest);font-weight:600}
+.mode:disabled{opacity:.45;cursor:default}
+#grid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;width:100%}
+.c{aspect-ratio:1;display:flex;align-items:center;justify-content:center;position:relative;font-family:var(--mono);font-size:min(8vw,30px);color:var(--ink);border-radius:7px;user-select:none;-webkit-user-select:none}
+.blk{background:var(--block)}
+.gap{background:#F1EFE8;border:2px dashed var(--border)}
+.tile{background:var(--surface);border:.5px solid var(--border);cursor:pointer}
+.home{background:var(--accent-softest);color:var(--accent-deepest)}
+.sel{border:2.5px solid var(--accent)}
+.mov{border:2px solid var(--accent-soft)}
+.n{position:absolute;top:3px;left:4px;font-size:11px;color:var(--muted);font-family:var(--sans)}
+#tray{margin-top:12px;text-align:center;min-height:28px}
+.traybtn{width:46px;height:46px;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;font-family:var(--mono);font-size:22px;border-radius:7px;border:.5px solid var(--border);background:var(--surface);cursor:pointer}
+#status{display:flex;align-items:center;justify-content:space-between;margin-top:14px;font-size:14px;color:#444;min-height:20px}
+.ctls{display:flex;gap:6px;margin-top:10px}
+.ctl{flex:1;padding:10px;font-size:14px;border:.5px solid var(--border);background:var(--surface);color:#444;border-radius:8px;cursor:pointer;font-family:var(--sans)}
+#cluebox{margin-top:12px;font-size:13px;color:#444;line-height:1.55}
+.foot{margin-top:18px;font-size:12px;color:var(--muted);text-align:center;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1 class="title">Scramble</h1>
+    <div class="sub">dev prototype · rearrange the shuffled letters into the answer</div>
+  </div>
+  <div class="modes">
+    <button class="mode" data-m="swap">Swap · easy</button>
+    <button class="mode" data-m="slide">Slide · med</button>
+    <button class="mode" data-m="cyclic" disabled>Cyclic · hard</button>
+  </div>
+  <div id="grid"></div>
+  <div id="tray"></div>
+  <div id="status"></div>
+  <div class="ctls">
+    <button class="ctl" id="undo">Undo</button>
+    <button class="ctl" id="shuffle">Shuffle</button>
+    <button class="ctl" id="clues">Clues</button>
+  </div>
+  <div id="cluebox" data-open="0" style="display:none"></div>
+  <div class="foot">Swap: tap two tiles.&nbsp; Slide: tap a tile next to the gap, then drop the last letter from the tray.<br>Cyclic mode and a puzzle picker are coming in the real app.</div>
+</div>
+<script>
+(function(){
+  var GRID=["..CAP",".ROBE","FAULT","ACRE.","NET.."], R=5, C=5;
+  var sol=[],block=[];
+  for(var r=0;r<R;r++){sol.push([]);block.push([]);for(var c=0;c<C;c++){var ch=GRID[r][c];block[r].push(ch==='.');sol[r].push(ch==='.'?null:ch);}}
+  var num={},n=0;
+  for(var r=0;r<R;r++)for(var c=0;c<C;c++){if(block[r][c])continue;var a=(c===0||block[r][c-1])&&(c+1<C&&!block[r][c+1]);var d=(r===0||block[r-1][c])&&(r+1<R&&!block[r+1][c]);if(a||d){n++;num[r+','+c]=n;}}
+  var clues={across:{"1":"Bottle topper","4":"Bathrobe","5":"Blame, or a tennis miss","6":"Land measure","7":"Hoop's mesh"},down:{"1":"Tennis venue","2":"Capable","3":"Household animal","4":"Sprint event","5":"Devoted follower"}};
+  var open=[];for(var r=0;r<R;r++)for(var c=0;c<C;c++)if(!block[r][c])open.push([r,c]);
+  var S={mode:'swap',board:[],tray:null,gap:null,gapHome:null,sel:null,moves:0,hist:[],won:false};
+  function rnd(a){return Math.floor(Math.random()*a);}
+  function copySol(){var b=[];for(var r=0;r<R;r++){b.push([]);for(var c=0;c<C;c++)b[r].push(sol[r][c]);}return b;}
+  function eqSol(){for(var i=0;i<open.length;i++){var p=open[i];if(S.board[p[0]][p[1]]!==sol[p[0]][p[1]])return false;}return true;}
+  function same(ls){for(var i=0;i<open.length;i++){var p=open[i];if(ls[i]!==sol[p[0]][p[1]])return false;}return true;}
+  function nbrs(pos){if(!pos||pos.length<2)return[];var r=pos[0],c=pos[1],o=[];[[1,0],[-1,0],[0,1],[0,-1]].forEach(function(d){var nr=r+d[0],nc=c+d[1];if(nr>=0&&nr<R&&nc>=0&&nc<C&&!block[nr][nc])o.push([nr,nc]);});return o;}
+  function initSwap(){var ls=open.map(function(p){return sol[p[0]][p[1]];});do{for(var i=ls.length-1;i>0;i--){var j=rnd(i+1),t=ls[i];ls[i]=ls[j];ls[j]=t;}}while(same(ls));S.board=copySol();open.forEach(function(p,i){S.board[p[0]][p[1]]=ls[i];});S.tray=null;S.gap=null;S.gapHome=null;S.sel=null;}
+  function initSlide(){S.board=copySol();var g=open[rnd(open.length)];S.gapHome=[g[0],g[1]];S.tray=sol[g[0]][g[1]];S.board[g[0]][g[1]]='';S.gap=[g[0],g[1]];var last=null;for(var k=0;k<26;k++){var ns=nbrs(S.gap).filter(function(x){return !(last&&x[0]===last[0]&&x[1]===last[1]);});var pk=ns[rnd(ns.length)];last=[S.gap[0],S.gap[1]];S.board[S.gap[0]][S.gap[1]]=S.board[pk[0]][pk[1]];S.board[pk[0]][pk[1]]='';S.gap=pk;}S.sel=null;}
+  function setMode(m){if(m==='cyclic')return;S.mode=m;S.moves=0;S.hist=[];S.won=false;if(m==='swap')initSwap();else initSlide();render();}
+  function checkWin(){if(S.mode==='slide'&&S.tray!==null)return;if(eqSol())S.won=true;}
+  function onCell(r,c){if(S.won||block[r][c])return;if(S.mode==='swap'){if(!S.sel){S.sel=[r,c];}else{var a=S.sel;if(a[0]===r&&a[1]===c){S.sel=null;render();return;}var t=S.board[a[0]][a[1]];S.board[a[0]][a[1]]=S.board[r][c];S.board[r][c]=t;S.hist.push({t:'swap',a:a,b:[r,c]});S.moves++;S.sel=null;checkWin();}render();}else{if(S.board[r][c]==='')return;var g=S.gap;if(!g||Math.abs(g[0]-r)+Math.abs(g[1]-c)!==1)return;S.board[g[0]][g[1]]=S.board[r][c];S.board[r][c]='';S.hist.push({t:'slide',from:[r,c],gap:[g[0],g[1]]});S.gap=[r,c];S.moves++;checkWin();render();}}
+  function onTray(){if(S.mode!=='slide'||S.tray===null||S.won)return;if(S.gap&&S.gap[0]===S.gapHome[0]&&S.gap[1]===S.gapHome[1]){S.board[S.gapHome[0]][S.gapHome[1]]=S.tray;S.hist.push({t:'place'});S.tray=null;S.gap=null;S.moves++;checkWin();render();}}
+  function undo(){if(!S.hist.length||S.won)return;var m=S.hist.pop();S.moves=Math.max(0,S.moves-1);if(m.t==='swap'){var t=S.board[m.a[0]][m.a[1]];S.board[m.a[0]][m.a[1]]=S.board[m.b[0]][m.b[1]];S.board[m.b[0]][m.b[1]]=t;S.sel=null;}else if(m.t==='slide'){S.board[m.from[0]][m.from[1]]=S.board[m.gap[0]][m.gap[1]];S.board[m.gap[0]][m.gap[1]]='';S.gap=[m.gap[0],m.gap[1]];}else if(m.t==='place'){S.tray=sol[S.gapHome[0]][S.gapHome[1]];S.board[S.gapHome[0]][S.gapHome[1]]='';S.gap=[S.gapHome[0],S.gapHome[1]];}render();}
+  function render(){
+    var g=document.getElementById('grid'),mv=nbrs(S.gap).map(function(x){return x[0]+','+x[1];}),h='';
+    for(var r=0;r<R;r++)for(var c=0;c<C;c++){
+      if(block[r][c]){h+='<div class="c blk"></div>';continue;}
+      var v=S.board[r][c];
+      if(v===''){h+='<div class="c gap"></div>';continue;}
+      var cls='c tile'+(v===sol[r][c]?' home':'');
+      if(S.sel&&S.sel[0]===r&&S.sel[1]===c)cls+=' sel';
+      if(S.mode==='slide'&&mv.indexOf(r+','+c)>=0)cls+=' mov';
+      var nm=num[r+','+c]?'<span class="n">'+num[r+','+c]+'</span>':'';
+      h+='<div class="'+cls+'" data-r="'+r+'" data-c="'+c+'">'+nm+v+'</div>';
+    }
+    g.innerHTML=h;
+    var tray=document.getElementById('tray');
+    if(S.mode==='slide'&&S.tray!==null){var can=S.gap&&S.gap[0]===S.gapHome[0]&&S.gap[1]===S.gapHome[1];tray.innerHTML='<span style="font-size:13px;color:var(--muted)">last letter&nbsp;</span><button class="traybtn'+(can?' home':'')+'" id="traybtn" style="'+(can?'':'opacity:.6')+'">'+S.tray+'</button><span style="font-size:13px;color:'+(can?'var(--accent)':'var(--muted)')+'">&nbsp;'+(can?'tap to drop in':'slide gap home first')+'</span>';}
+    else tray.innerHTML='';
+    var st=document.getElementById('status');
+    st.innerHTML=S.won?'<span style="color:var(--accent);font-weight:600">✓ Solved in '+S.moves+' moves</span>':'<span>Moves: '+S.moves+'</span><span style="color:var(--muted)">'+(S.mode==='swap'?'tap two tiles':'tap a tile by the gap')+'</span>';
+    var ms=document.querySelectorAll('.mode');for(var i=0;i<ms.length;i++)ms[i].classList.toggle('active',ms[i].getAttribute('data-m')===S.mode);
+    var cb=document.getElementById('cluebox');
+    if(cb.getAttribute('data-open')==='1'){var a='',d='';Object.keys(clues.across).forEach(function(k){a+='<div><b>'+k+'A</b> '+clues.across[k]+'</div>';});Object.keys(clues.down).forEach(function(k){d+='<div><b>'+k+'D</b> '+clues.down[k]+'</div>';});cb.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div>'+a+'</div><div>'+d+'</div></div>';cb.style.display='block';}else cb.style.display='none';
+  }
+  document.getElementById('grid').addEventListener('click',function(e){var el=e.target.closest('.tile');if(!el||el.getAttribute('data-r')===null)return;onCell(+el.getAttribute('data-r'),+el.getAttribute('data-c'));});
+  document.getElementById('tray').addEventListener('click',function(e){if(e.target.closest('#traybtn'))onTray();});
+  var ms=document.querySelectorAll('.mode');for(var i=0;i<ms.length;i++)ms[i].addEventListener('click',function(){setMode(this.getAttribute('data-m'));});
+  document.getElementById('undo').addEventListener('click',undo);
+  document.getElementById('shuffle').addEventListener('click',function(){setMode(S.mode);});
+  document.getElementById('clues').addEventListener('click',function(){var cb=document.getElementById('cluebox');cb.setAttribute('data-open',cb.getAttribute('data-open')==='1'?'0':'1');render();});
+  setMode('swap');
+})();
+</script>
+</body>
+</html>
