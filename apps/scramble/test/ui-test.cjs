@@ -156,6 +156,27 @@ function solutionOf(p) {
     console.log("   " + text.trim());
   }
 
+  // --- cyclic mode ---------------------------------------------------------
+  // The seamless-wrap render and the spring/momentum feel are device-verified
+  // (like the iOS keyboard); here we prove the wiring: it renders, hides the
+  // numbers, and a drag on a row commits a shift.
+  await btn("Cyclic").click();
+  await page.waitForTimeout(150);
+  ok("cyclic renders all 25 cells", (await page.locator(".xws-cell").count()) === 25);
+  ok("cyclic hides cell numbers", (await page.locator(".xws-n").count()) === 0);
+  ok("cyclic prompts a drag", /drag a row or column/i.test(await page.locator(".xws-status").textContent()));
+
+  const gb = await page.locator(".xws-grid").boundingBox();
+  const cw = gb.width / 5;
+  const midY = gb.y + gb.height * 0.5;
+  const x0 = gb.x + gb.width * 0.3;
+  await page.mouse.move(x0, midY);
+  await page.mouse.down();
+  for (let i = 1; i <= 6; i++) { await page.mouse.move(x0 + cw * 1.4 * (i / 6), midY); await page.waitForTimeout(16); }
+  await page.mouse.up();
+  await page.waitForTimeout(800);   // let the snap spring settle and commit
+  ok("a cyclic drag commits a move", Number((await page.locator(".xws-moves").textContent()).trim()) >= 1);
+
   ok("no uncaught page errors", errors.length === 0);
   if (errors.length) errors.forEach((e) => console.log("   " + e));
 

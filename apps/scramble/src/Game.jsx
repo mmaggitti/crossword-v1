@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { parsePuzzle, TOKENS } from "@crossword/core";
 import Board, { SCRAMBLE_CSS } from "./Board.jsx";
 import {
@@ -7,6 +7,7 @@ import {
   legalMoves,
   scrambleUnsolved,
 } from "./mechanics.js";
+import { useCyclicDrag } from "./useCyclicDrag.js";
 
 // Each mechanic is a self-contained mode, and together they read as a
 // difficulty ladder. Switching re-scrambles rather than converting the board,
@@ -14,9 +15,8 @@ import {
 const MODES = [
   { id: "swap", label: "Swap", note: "easy", hint: "tap two tiles" },
   { id: "slide", label: "Slide", note: "med", hint: "tap a tile by the gap" },
-  // Cyclic needs blockless grids to be well-defined — a row chopped by black
-  // squares has no meaningful "shift and wrap". It arrives with word squares.
-  { id: "cyclic", label: "Cyclic", note: "soon", hint: "", disabled: true },
+  // Blocks travel with their line, so cyclic is well-defined on any grid.
+  { id: "cyclic", label: "Cyclic", note: "hard", hint: "drag a row or column" },
 ];
 
 const CLUE_MODES = [
@@ -49,6 +49,7 @@ export default function Game({ puzzle, puzzle3, onExit }) {
   const [history, setHistory] = useState([]);
   const [moves, setMoves] = useState(0);
   const [sel, setSel] = useState(null);
+  const gridRef = useRef(null);
 
   // Re-scramble when the active puzzle or mechanic changes. Done during render
   // (not in an effect) so `game` is never a frame out of sync with the grid —
@@ -63,11 +64,15 @@ export default function Game({ puzzle, puzzle3, onExit }) {
     setSel(null);
   }
 
-  const solved = game ? isSolved(game, model.solution) : false;
+  // `game` briefly belongs to the previous puzzle/size right after a toggle
+  // (the reset above is queued, not yet applied). Guard every derived value
+  // until it catches up, or a 3x3 board gets indexed by a 5x5 model and crashes.
+  const ready = !!game && game.board.length === model.rows;
+  const solved = ready ? isSolved(game, model.solution) : false;
 
   // Slide: highlight the tiles that can actually move into the gap.
   const movable = useMemo(() => {
-    if (!game || game.mechanic !== "slide" || solved) return null;
+    if (!ready || game.mechanic !== "slide" || solved) return null;
     const set = new Set();
     for (const move of legalMoves(game, model.solution)) {
       if (move.type === "slide") set.add(`${move.from[0]},${move.from[1]}`);
@@ -84,6 +89,22 @@ export default function Game({ puzzle, puzzle3, onExit }) {
     setGame(next);
     setMoves((m) => m + 1);
   };
+
+  // Cyclic: a drag commits one move (Undo reverts the whole drag).
+  const onShift = (axis, index, steps) => {
+    if (!steps) return;
+    const dir = steps > 0 ? 1 : -1;
+    let g = game;
+    for (let k = 0; k < Math.abs(steps); k++) g = applyMove(g, { type: "shift", axis, index, dir });
+    commit(g);
+  };
+  const cyclic = useCyclicDrag({
+    gridRef,
+    rows: model.rows,
+    cols: model.cols,
+    enabled: !!game && game.mechanic === "cyclic" && !solved,
+    onShift,
+  });
 
   const onCell = (r, c) => {
     if (!game || solved) return;
@@ -126,18 +147,28 @@ export default function Game({ puzzle, puzzle3, onExit }) {
   // Jumbled = every clue, no numbers, no across/down, no order — the clue
   // layer scrambled to match the board. Labeled is the ordinary numbered list.
   const jumbled = useMemo(() => {
-    const all = model.entries.map((e) => e.clue);
-    return all
-      .map((clue) => ({ clue, k: hash(`${active.id}:${clue}`) }))
+    return model.entries
+      .map((e) => ({ e, k: hash(`${active.id}:${e.id}`) }))
       .sort((a, b) => a.k - b.k)
-      .map((x) => x.clue);
+      .map((x) => x.e);
   }, [model, active.id]);
+
+  // An entry is "found" once every one of its cells shows the right letter.
+  // Completing a word reveals its clue in green; in None mode they fill in.
+  const found = useMemo(() => {
+    const s = new Set();
+    if (!ready) return s;
+    for (const e of model.entries) {
+      if (e.cells.every(({ r, c }) => game.board[r]?.[c] === model.solution[r][c])) s.add(e.id);
+    }
+    return s;
+  }, [game, model, ready]);
 
   const mode = MODES.find((m) => m.id === mechanic);
 
-  // Also bail if `game` belongs to the previous size — the during-render reset
-  // above will have queued a fresh scramble and re-rendered.
-  if (!game || game.board.length !== model.rows) return null;
+  // Bail until `game` matches the current model — the during-render reset above
+  // will have queued a fresh scramble and re-rendered.
+  if (!ready) return null;
 
   return (
     <div className="xw xws">
@@ -165,26 +196,27 @@ export default function Game({ puzzle, puzzle3, onExit }) {
         </div>
       </header>
 
-      {clueMode !== "none" && (
+      {(clueMode !== "none" || found.size > 0) && (
         <div className="xws-clues">
-          {clueMode === "jumbled" ? (
-            <div className="xws-pool">
-              {jumbled.map((clue, i) => (
-                <span className="xws-chip" key={i}>{clue}</span>
-              ))}
-            </div>
-          ) : (
+          {clueMode === "labeled" ? (
             <div className="xws-cols">
               <div>
                 {model.entries.filter((e) => e.dir === "across").map((e) => (
-                  <div key={e.id}><b>{e.number}A</b> {e.clue}</div>
+                  <div key={e.id} className={found.has(e.id) ? "got" : ""}><b>{e.number}A</b> {e.clue}</div>
                 ))}
               </div>
               <div>
                 {model.entries.filter((e) => e.dir === "down").map((e) => (
-                  <div key={e.id}><b>{e.number}D</b> {e.clue}</div>
+                  <div key={e.id} className={found.has(e.id) ? "got" : ""}><b>{e.number}D</b> {e.clue}</div>
                 ))}
               </div>
+            </div>
+          ) : (
+            // Jumbled shows every clue; None shows only found ones (they fill in).
+            <div className="xws-pool">
+              {(clueMode === "none" ? jumbled.filter((e) => found.has(e.id)) : jumbled).map((e) => (
+                <span className={`xws-chip${found.has(e.id) ? " got" : ""}`} key={e.id}>{e.clue}</span>
+              ))}
             </div>
           )}
         </div>
@@ -197,6 +229,10 @@ export default function Game({ puzzle, puzzle3, onExit }) {
         movable={movable}
         onCell={onCell}
         solved={solved}
+        bind={cyclic.bind}
+        active={cyclic.active}
+        offset={cyclic.offset}
+        gridRef={gridRef}
       />
 
       {game.mechanic === "slide" && (

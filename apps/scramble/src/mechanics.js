@@ -22,11 +22,20 @@
  * cyclic shifts reach far fewer still.)
  */
 
-export const MECHANICS = ["swap", "slide"];
-export const DEFAULT_STEPS = { swap: 40, slide: 60 };
+export const MECHANICS = ["swap", "slide", "cyclic"];
+export const DEFAULT_STEPS = { swap: 40, slide: 60, cyclic: 12 };
 
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const sameCell = (a, b) => !!a && !!b && a[0] === b[0] && a[1] === b[1];
+
+// Move equality — used by scramble to avoid immediately undoing the last move.
+function sameMove(a, b) {
+  if (!a || !b || a.type !== b.type) return false;
+  if (a.type === "swap") return sameCell(a.a, b.a) && sameCell(a.b, b.b);
+  if (a.type === "slide") return sameCell(a.from, b.from);
+  if (a.type === "shift") return a.axis === b.axis && a.index === b.index && a.dir === b.dir;
+  return true;
+}
 
 export function openCellsOf(solution) {
   const out = [];
@@ -75,6 +84,22 @@ export function legalMoves(state, solution) {
     return out;
   }
 
+  if (state.mechanic === "cyclic") {
+    // Every row and every column is a carousel; a shift rotates the whole line
+    // (blocks travel with it). dir +1 moves content to the next index.
+    const out = [];
+    const rows = solution.length, cols = solution[0].length;
+    for (let r = 0; r < rows; r++) {
+      out.push({ type: "shift", axis: "row", index: r, dir: 1 });
+      out.push({ type: "shift", axis: "row", index: r, dir: -1 });
+    }
+    for (let c = 0; c < cols; c++) {
+      out.push({ type: "shift", axis: "col", index: c, dir: 1 });
+      out.push({ type: "shift", axis: "col", index: c, dir: -1 });
+    }
+    return out;
+  }
+
   // slide: any tile orthogonally adjacent to the gap can move into it.
   const out = [];
   if (!state.gap) return out;
@@ -119,6 +144,16 @@ export function applyMove(state, move) {
     next.tray = next.board[hr][hc];
     next.board[hr][hc] = "";
     next.gap = [hr, hc];
+  } else if (move.type === "shift") {
+    const b = next.board;
+    if (move.axis === "row") {
+      const row = b[move.index], n = row.length;
+      b[move.index] = row.map((_, i) => row[((i - move.dir) % n + n) % n]);
+    } else {
+      const n = b.length;
+      const col = b.map((row) => row[move.index]);
+      for (let r = 0; r < n; r++) b[r][move.index] = col[((r - move.dir) % n + n) % n];
+    }
   }
   return next;
 }
@@ -129,16 +164,17 @@ export function inverseMove(move, prevState) {
   if (move.type === "slide") return { type: "slide", from: prevState.gap };
   if (move.type === "place") return { type: "unplace" };
   if (move.type === "unplace") return { type: "place" };
+  if (move.type === "shift") return { type: "shift", axis: move.axis, index: move.index, dir: -move.dir };
   return move;
 }
 
-/** Positional letter match. Repeated letters are fine — tiles are anonymous,
- *  so the board is solved the moment every cell SHOWS the right letter. */
+/** Positional match on EVERY cell — letters and blocks alike. Repeated letters
+ *  are fine (tiles are anonymous). Blocks are checked too, because in cyclic
+ *  they travel; in swap/slide they never move, so this is a no-op there. */
 export function isSolved(state, solution) {
   if (state.tray != null) return false;   // slide: last letter still in hand
   for (let r = 0; r < solution.length; r++) {
     for (let c = 0; c < solution[r].length; c++) {
-      if (solution[r][c] === null) continue;
       if (state.board[r][c] !== solution[r][c]) return false;
     }
   }
@@ -153,21 +189,22 @@ export function isSolved(state, solution) {
 export function scramble(solution, mechanic, steps = DEFAULT_STEPS[mechanic] ?? 40, rnd = Math.random) {
   let state = createState(solution, mechanic, rnd);
   const undoPath = [];
-  let prevGap = null;
+  let lastInverse = null;
 
   for (let i = 0; i < steps; i++) {
     // Never "place" mid-shuffle — the tray is filled at the end, not during.
     let moves = legalMoves(state, solution).filter((m) => m.type !== "place");
-    // Don't immediately undo the previous slide, or the walk stalls in place.
-    if (prevGap) {
-      const forward = moves.filter((m) => !sameCell(m.from, prevGap));
+    // Don't immediately undo the previous move, or the walk stalls in place.
+    if (lastInverse) {
+      const forward = moves.filter((m) => !sameMove(m, lastInverse));
       if (forward.length) moves = forward;
     }
     if (!moves.length) break;
 
     const move = moves[Math.floor(rnd() * moves.length)];
-    undoPath.unshift(inverseMove(move, state));
-    prevGap = state.gap ? state.gap.slice() : null;
+    const inv = inverseMove(move, state);
+    undoPath.unshift(inv);
+    lastInverse = inv;
     state = applyMove(state, move);
   }
 

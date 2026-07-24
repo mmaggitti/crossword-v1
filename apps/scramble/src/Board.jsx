@@ -1,3 +1,5 @@
+import { animated } from "@react-spring/web";
+
 /* The scramble board.
  *
  * This is deliberately NOT the engine's GridDOM. The player's renderer is
@@ -48,6 +50,7 @@ export const SCRAMBLE_CSS = `
   padding: 0 var(--space-lg);
 }
 .xws-grid {
+  position: relative;
   display: grid;
   width: min(100cqw, calc(100cqh * var(--cols) / var(--rows)));
   aspect-ratio: var(--cols) / var(--rows);
@@ -74,6 +77,15 @@ export const SCRAMBLE_CSS = `
   position: absolute; top: 4%; left: 6%;
   font-family: var(--sans); font-size: var(--text-xs); color: var(--muted); line-height: 1;
 }
+
+/* Cyclic mode: contiguous tiles (no gap) so the drag strip aligns pixel-exact,
+   and touch-action:none so the browser doesn't pan while dragging a line. */
+.xws-grid.cyclic { gap: 0; touch-action: none; }
+.xws-clip { position: absolute; overflow: hidden; z-index: 2; }
+.xws-strip { display: flex; width: 100%; height: 100%; will-change: transform; }
+.xws-strip.row { flex-direction: row; }
+.xws-strip.col { flex-direction: column; }
+.xws-scell { box-sizing: border-box; }
 
 .xws-tray {
   flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
@@ -111,6 +123,11 @@ export const SCRAMBLE_CSS = `
 .xws-cols { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md); }
 .xws-cols b { font-family: var(--mono); color: var(--accent-deep); font-weight: 600; }
 
+/* A found word's clue goes green (a pill in the pool, a shaded row in the list). */
+.xws-chip.got { background: var(--accent-softest); border-color: var(--accent-soft); color: var(--accent-deepest); font-weight: 600; }
+.xws-cols .got { background: var(--accent-softest); color: var(--accent-deepest); border-radius: calc(var(--radius) * 0.5); }
+.xws-cols .got b { color: var(--accent-deep); }
+
 .xws-dock {
   flex: 0 0 auto; display: flex; flex-direction: column; gap: var(--space-xs);
   padding: var(--space-sm) var(--space-lg) calc(var(--space-md) + env(safe-area-inset-bottom, 0px));
@@ -137,14 +154,18 @@ export const SCRAMBLE_CSS = `
 .xws-status .done { color: var(--accent); font-weight: 600; }
 `;
 
-export default function Board({ model, state, sel, movable, onCell, solved }) {
+export default function Board({ model, state, sel, movable, onCell, solved, bind, active, offset, gridRef }) {
   const { rows, cols, solution, cellIndex } = model;
+  const cyclic = state.mechanic === "cyclic";
   const cells = [];
 
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const key = `${r},${c}`;
-      if (solution[r][c] === null) {
+      // Block by CURRENT board cell, not the solution — in cyclic the blocks
+      // travel with their line, so a block can sit anywhere mid-solve. (For
+      // swap/slide the board block cells are exactly the solution's, unchanged.)
+      if (state.board[r][c] === null) {
         cells.push(<div key={key} className="xws-cell blk" />);
         continue;
       }
@@ -153,7 +174,8 @@ export default function Board({ model, state, sel, movable, onCell, solved }) {
         cells.push(<div key={key} className="xws-cell gap" />);
         continue;
       }
-      const number = cellIndex[r][c]?.number ?? null;
+      // Solution-position numbers are meaningless on a shuffled cyclic grid.
+      const number = state.mechanic === "cyclic" ? null : (cellIndex[r][c]?.number ?? null);
       const cls = ["xws-cell", "tile"];
       if (value === solution[r][c]) cls.push("home");
       if (sel && sel[0] === r && sel[1] === c) cls.push("sel");
@@ -174,15 +196,61 @@ export default function Board({ model, state, sel, movable, onCell, solved }) {
     }
   }
 
+  // Cyclic drag: the active row/column is drawn as a 3-copy strip translated by
+  // the animated offset, clipped to the line, so the wrap is seamless mid-drag.
+  let overlay = null;
+  if (cyclic && active) {
+    const isRow = active.axis === "row";
+    const n = isRow ? cols : rows;
+    const line = isRow
+      ? state.board[active.index].map((v, i) => ({ v, r: active.index, c: i }))
+      : state.board.map((row, i) => ({ v: row[active.index], r: i, c: active.index }));
+    const strip = [0, 1, 2].flatMap((copy) =>
+      line.map((t, i) => {
+        const isBlk = t.v === null;
+        const home = !isBlk && t.v === solution[t.r][t.c];
+        return (
+          <div
+            key={`${copy}-${i}`}
+            className={`xws-scell xws-cell ${isBlk ? "blk" : "tile"}${home ? " home" : ""}`}
+            style={{ flex: `0 0 ${100 / n}%` }}
+          >
+            {isBlk ? null : t.v}
+          </div>
+        );
+      })
+    );
+    const clipStyle = isRow
+      ? { left: 0, width: "100%", top: `${(active.index / rows) * 100}%`, height: `${100 / rows}%` }
+      : { top: 0, height: "100%", left: `${(active.index / cols) * 100}%`, width: `${100 / cols}%` };
+    overlay = (
+      <div className="xws-clip" style={clipStyle}>
+        <animated.div
+          className={`xws-strip ${isRow ? "row" : "col"}`}
+          style={{
+            transform: offset.to((o) =>
+              isRow ? `translateX(calc(-100% + ${o}px))` : `translateY(calc(-100% + ${o}px))`
+            ),
+          }}
+        >
+          {strip}
+        </animated.div>
+      </div>
+    );
+  }
+
   return (
     <div className="xws-stage">
       <div
-        className="xws-grid"
+        ref={gridRef}
+        className={`xws-grid${cyclic ? " cyclic" : ""}`}
         style={{ "--cols": cols, "--rows": rows }}
         role="grid"
         aria-label="Scrambled crossword board"
+        {...(cyclic && bind ? bind() : {})}
       >
         {cells}
+        {overlay}
       </div>
     </div>
   );

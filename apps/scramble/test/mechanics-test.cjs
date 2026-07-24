@@ -75,6 +75,7 @@ function mulberry32(seed) {
     let allSolvable = true;
     let allScrambled = true;
     let blocksIntact = true;
+    let blocksMoved = false;
     let oneGap = true;
 
     for (let seed = 1; seed <= 40; seed++) {
@@ -82,10 +83,15 @@ function mulberry32(seed) {
       const { state, undoPath } = M.scrambleUnsolved(solution, mechanic, undefined, rnd);
       if (M.isSolved(state, solution)) allScrambled = false;
 
-      // blocks must never be disturbed
+      // Blocks are fixed in swap/slide (must never move) but travel in cyclic.
       for (let r = 0; r < solution.length; r++) {
         for (let c = 0; c < solution[r].length; c++) {
-          if (solution[r][c] === null && state.board[r][c] !== null) blocksIntact = false;
+          const wasBlock = solution[r][c] === null;
+          const isBlock = state.board[r][c] === null;
+          if (wasBlock !== isBlock) {
+            if (mechanic === "cyclic") blocksMoved = true;   // expected — they ride the line
+            else blocksIntact = false;                       // a bug in swap/slide
+          }
         }
       }
 
@@ -105,7 +111,8 @@ function mulberry32(seed) {
 
     ok(`${mechanic}: 40 seeds all scramble away from solved`, allScrambled);
     ok(`${mechanic}: 40 seeds all solvable via recorded path`, allSolvable);
-    ok(`${mechanic}: blocks never disturbed`, blocksIntact);
+    if (mechanic === "cyclic") ok("cyclic: blocks travel with their line", blocksMoved);
+    else ok(`${mechanic}: blocks never disturbed`, blocksIntact);
     if (mechanic === "slide") ok("slide: exactly one gap on the board", oneGap);
   }
 
@@ -128,6 +135,35 @@ function mulberry32(seed) {
     "slide: 'place' offered only when the gap is home",
     moves.some((m) => m.type === "place") === gapAtHome
   );
+
+  // --- cyclic shift legality ----------------------------------------------
+  {
+    const cyc = M.createState(solution, "cyclic");
+    const before = cyc.board.map((row) => row.slice());
+    const shifted = M.applyMove(cyc, { type: "shift", axis: "row", index: 2, dir: 1 });
+    let onlyRow2 = true;
+    for (let r = 0; r < solution.length; r++) {
+      for (let c = 0; c < solution[r].length; c++) {
+        if (shifted.board[r][c] !== before[r][c] && r !== 2) onlyRow2 = false;
+      }
+    }
+    ok("cyclic: a row shift changes only that row", onlyRow2);
+
+    const back = M.applyMove(shifted, { type: "shift", axis: "row", index: 2, dir: -1 });
+    let restored = true;
+    for (let r = 0; r < solution.length; r++)
+      for (let c = 0; c < solution[r].length; c++)
+        if (back.board[r][c] !== before[r][c]) restored = false;
+    ok("cyclic: +1 then -1 restores the line", restored);
+
+    // a column shift touches only that column
+    const colShift = M.applyMove(cyc, { type: "shift", axis: "col", index: 0, dir: 1 });
+    let onlyCol0 = true;
+    for (let r = 0; r < solution.length; r++)
+      for (let c = 0; c < solution[r].length; c++)
+        if (colShift.board[r][c] !== before[r][c] && c !== 0) onlyCol0 = false;
+    ok("cyclic: a column shift changes only that column", onlyCol0);
+  }
 
   // --- report --------------------------------------------------------------
   const bad = checks.filter(([, pass]) => !pass);
