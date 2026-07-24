@@ -37,6 +37,11 @@ export function useCyclicDrag({ gridRef, rows, cols, enabled, onShift }) {
           : Math.max(0, Math.min(cols - 1, Math.floor((relX / rect.width) * cols)));
         const pitch = axis === "row" ? rect.width / cols : rect.height / rows;
         lock.current = { axis, index, pitch };
+        // Reset the offset HERE, before the overlay mounts — the clean baseline for
+        // this drag. Never reset it in onRest: snapping the still-mounted (pre-shift)
+        // strip back to 0 would flash the line to its start position for a frame
+        // before React commits the shift. See the onRest note below.
+        api.set({ offset: 0 });
         setActive({ axis, index });
       }
 
@@ -52,8 +57,12 @@ export function useCyclicDrag({ gridRef, rows, cols, enabled, onShift }) {
           offset: steps * L.pitch,
           config: { tension: 320, friction: 30 },
           onRest: () => {
+            // Commit the shift and drop the overlay in one React-18 batched commit.
+            // The strip is holding at steps*pitch — pixel-identical to the shifted
+            // grid about to paint — so it unmounts straight onto a matching board.
+            // Do NOT api.set({ offset: 0 }) here: that imperative write repaints the
+            // old strip at its start position before the commit lands (the glitch).
             if (steps) onShift(L.axis, L.index, steps);
-            api.set({ offset: 0 });   // board now shows the committed shift
             lock.current = null;
             setActive(null);
           },
