@@ -9,7 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "pretest": "vite build",
-    "test": "for t in mechanics ui; do echo \"--- $t\"; node test/$t-test.cjs || exit 1; done"
+    "test": "for t in mechanics solver ui; do echo \"--- $t\"; node test/$t-test.cjs || exit 1; done"
   },
   "dependencies": {
     "@crossword/core": "*",

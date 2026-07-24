@@ -162,26 +162,58 @@ export const SCRAMBLE_CSS = `
   min-height: calc(var(--u) * 1.2);
 }
 .xws-status .done { color: var(--accent); font-weight: 600; }
+.xws-status .hinting { color: var(--accent-deep); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.xws-status .hintcount { flex: 0 0 auto; font-family: var(--mono); font-weight: 600; color: var(--accent-deep); white-space: nowrap; }
+.xws-btn.hint { color: var(--accent-deepest); }
+
+/* Hint highlight: a warm amber ring pulses on the cell(s) — or the whole line,
+   in cyclic — that the solver says to move next. Amber (not green) so it reads
+   as "do this" rather than "already home". */
+@keyframes xws-hintpulse {
+  0%, 100% { box-shadow: inset 0 0 0 var(--hw) var(--hint-c); }
+  50%      { box-shadow: inset 0 0 0 var(--hw) var(--hint-dim); }
+}
+.xws-cell.hint {
+  --hw: max(2px, calc(var(--u) * 0.1)); --hint-c: #e0a100; --hint-dim: #f2d88e;
+  box-shadow: inset 0 0 0 var(--hw) var(--hint-c); z-index: 3;
+  animation: xws-hintpulse 1.05s ease-in-out infinite;
+}
+/* The ring stays visible at every phase (brightens, never vanishes). */
+@media (prefers-reduced-motion: reduce) { .xws-cell.hint { animation: none; } }
+
+/* Cyclic hint: one outline around the whole row/column (it slides as a unit). */
+@keyframes xws-hintlinepulse { 0%, 100% { border-color: #e0a100; } 50% { border-color: #f2d88e; } }
+.xws-hintline {
+  position: absolute; box-sizing: border-box; z-index: 3; pointer-events: none;
+  border: max(2px, calc(var(--u) * 0.11)) solid #e0a100;
+  border-radius: calc(var(--radius) * 0.6);
+  animation: xws-hintlinepulse 1.05s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) { .xws-hintline { animation: none; } }
 `;
 
-export default function Board({ model, state, sel, movable, onCell, solved, bind, active, offset, gridRef }) {
+export default function Board({ model, state, sel, movable, onCell, solved, bind, active, offset, gridRef, hintCells, hintLine }) {
   const { rows, cols, solution, cellIndex } = model;
   const cyclic = state.mechanic === "cyclic";
+  // A cyclic hint outlines the whole line as one frame (see hintOutline below);
+  // per-cell rings are only for swap/slide, where individual tiles move.
+  const hintSet = !hintLine && hintCells && hintCells.length ? new Set(hintCells) : null;
   const cells = [];
 
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const key = `${r},${c}`;
+      const isHint = hintSet ? hintSet.has(key) : false;
       // Block by CURRENT board cell, not the solution — in cyclic the blocks
       // travel with their line, so a block can sit anywhere mid-solve. (For
       // swap/slide the board block cells are exactly the solution's, unchanged.)
       if (state.board[r][c] === null) {
-        cells.push(<div key={key} className="xws-cell blk" />);
+        cells.push(<div key={key} className={`xws-cell blk${isHint ? " hint" : ""}`} />);
         continue;
       }
       const value = state.board[r][c];
       if (value === "") {
-        cells.push(<div key={key} className="xws-cell gap" />);
+        cells.push(<div key={key} className={`xws-cell gap${isHint ? " hint" : ""}`} />);
         continue;
       }
       // Solution-position numbers are meaningless on a shuffled cyclic grid.
@@ -190,6 +222,7 @@ export default function Board({ model, state, sel, movable, onCell, solved, bind
       if (value === solution[r][c]) cls.push("home");
       if (sel && sel[0] === r && sel[1] === c) cls.push("sel");
       if (movable && movable.has(key)) cls.push("mov");
+      if (isHint) cls.push("hint");
 
       cells.push(
         <div
@@ -249,6 +282,18 @@ export default function Board({ model, state, sel, movable, onCell, solved, bind
     );
   }
 
+  // Cyclic hint: one outline around the whole row/column. The carousel moves as
+  // a single object, so a single frame reads clearer than a ring per cell. The
+  // grid is gap:0 in cyclic, so the line rect aligns pixel-exact.
+  let hintOutline = null;
+  if (hintLine) {
+    const isRow = hintLine.axis === "row";
+    const style = isRow
+      ? { left: 0, width: "100%", top: `${(hintLine.index / rows) * 100}%`, height: `${100 / rows}%` }
+      : { top: 0, height: "100%", left: `${(hintLine.index / cols) * 100}%`, width: `${100 / cols}%` };
+    hintOutline = <div className="xws-hintline" style={style} aria-hidden="true" />;
+  }
+
   return (
     <div className="xws-stage">
       <div
@@ -261,6 +306,7 @@ export default function Board({ model, state, sel, movable, onCell, solved, bind
       >
         {cells}
         {overlay}
+        {hintOutline}
       </div>
     </div>
   );

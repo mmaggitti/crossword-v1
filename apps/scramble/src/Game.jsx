@@ -8,6 +8,7 @@ import {
   scrambleUnsolved,
 } from "./mechanics.js";
 import { useCyclicDrag } from "./useCyclicDrag.js";
+import { solve, humanizeMove } from "./solver.js";
 
 // Each mechanic is a self-contained mode, and together they read as a
 // difficulty ladder. Switching re-scrambles rather than converting the board,
@@ -49,6 +50,7 @@ export default function Game({ puzzle, puzzle3, onExit }) {
   const [history, setHistory] = useState([]);
   const [moves, setMoves] = useState(0);
   const [sel, setSel] = useState(null);
+  const [hint, setHint] = useState(null);   // { label, cells, arrow, count } | { exhausted } | null
   const gridRef = useRef(null);
 
   // Re-scramble when the active puzzle or mechanic changes. Done during render
@@ -62,6 +64,7 @@ export default function Game({ puzzle, puzzle3, onExit }) {
     setHistory([]);
     setMoves(0);
     setSel(null);
+    setHint(null);
   }
 
   // `game` briefly belongs to the previous puzzle/size right after a toggle
@@ -88,6 +91,7 @@ export default function Game({ puzzle, puzzle3, onExit }) {
     setHistory((h) => [...h, game]);
     setGame(next);
     setMoves((m) => m + 1);
+    setHint(null);   // the shown hint was for the previous position
   };
 
   // Cyclic: a drag commits one move (Undo reverts the whole drag).
@@ -135,6 +139,7 @@ export default function Game({ puzzle, puzzle3, onExit }) {
     setHistory((h) => h.slice(0, -1));
     setMoves((m) => Math.max(0, m - 1));
     setSel(null);
+    setHint(null);
   };
 
   const shuffle = () => {
@@ -142,6 +147,16 @@ export default function Game({ puzzle, puzzle3, onExit }) {
     setHistory([]);
     setMoves(0);
     setSel(null);
+    setHint(null);
+  };
+
+  // Ask the solver for the shortest finish and surface the next move to make.
+  // Synchronous: instant on 3x3 (and near-solved 5x5) — the cases a hint is for.
+  const showHint = () => {
+    if (!ready || solved) return;
+    const res = solve(game, model.solution);
+    if (res.exhausted) { setHint({ exhausted: true }); return; }
+    setHint({ ...humanizeMove(res.moves[0], game, model), count: res.count });
   };
 
   // Jumbled = every clue, no numbers, no across/down, no order — the clue
@@ -240,6 +255,8 @@ export default function Game({ puzzle, puzzle3, onExit }) {
         active={cyclic.active}
         offset={cyclic.offset}
         gridRef={gridRef}
+        hintCells={hint && !hint.exhausted ? hint.cells : null}
+        hintLine={hint && !hint.exhausted ? hint.line : null}
       />
 
       {game.mechanic === "slide" && (
@@ -267,6 +284,17 @@ export default function Game({ puzzle, puzzle3, onExit }) {
         <div className="xws-status">
           {solved ? (
             <span className="done">✓ Solved in {moves} moves</span>
+          ) : hint ? (
+            hint.exhausted ? (
+              <span className="hinting">💡 Deep in the scramble — get within a few moves, then tap Hint.</span>
+            ) : (
+              <>
+                <span className="hinting">💡 {hint.label}</span>
+                <span className="hintcount" title="the fewest moves to finish from here">
+                  {hint.count} to solve
+                </span>
+              </>
+            )
           ) : (
             <span>{mode?.hint}</span>
           )}
@@ -287,6 +315,7 @@ export default function Game({ puzzle, puzzle3, onExit }) {
 
         <div className="xws-row">
           <button className="xws-btn" onClick={undo} disabled={!history.length || solved}>Undo</button>
+          <button className="xws-btn hint" onClick={showHint} disabled={solved}>Hint</button>
           <button className="xws-btn" onClick={shuffle}>Shuffle</button>
         </div>
 

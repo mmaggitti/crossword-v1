@@ -186,6 +186,42 @@ function solutionOf(p) {
   await page.waitForTimeout(800);   // let the snap spring settle and commit
   ok("a cyclic drag commits a move", Number((await page.locator(".xws-moves").textContent()).trim()) >= 1);
 
+  // --- hint solver: next move + minimum count ------------------------------
+  // Swap (analytic, always solvable): the hint names two tiles and a minimum
+  // count; following that swap must drop the minimum by exactly one.
+  await btn("Swap").click();
+  await page.waitForTimeout(80);
+  await btn("Hint").click();
+  await page.waitForTimeout(80);
+  ok("hint surfaces a next move", /💡/.test(await page.locator(".xws-status .hinting").textContent()));
+  const n0 = parseInt((await page.locator(".xws-status .hintcount").textContent()).trim(), 10);
+  ok("hint shows a minimum move count", Number.isFinite(n0) && n0 >= 2);
+  ok("swap hint highlights exactly two tiles", (await page.locator(".xws-cell.hint").count()) === 2);
+  const hc = await page.evaluate(() =>
+    [...document.querySelectorAll(".xws-cell.hint")].map((el) => [el.getAttribute("data-r"), el.getAttribute("data-c")])
+  );
+  await page.click(`.xws-cell[data-r="${hc[0][0]}"][data-c="${hc[0][1]}"]`);
+  await page.click(`.xws-cell[data-r="${hc[1][0]}"][data-c="${hc[1][1]}"]`);
+  await page.waitForTimeout(80);
+  ok("making a move clears the stale hint", (await page.locator(".xws-cell.hint").count()) === 0);
+  await btn("Hint").click();
+  await page.waitForTimeout(80);
+  const n1 = parseInt((await page.locator(".xws-status .hintcount").textContent()).trim(), 10);
+  ok("following the hint reduces the minimum by exactly one", n1 === n0 - 1);
+
+  // Cyclic on the 3x3 (a fresh 5x5 cyclic is too deep for the solver's budget):
+  // the hint highlights a whole line to slide and reports a minimum.
+  await page.locator(".xws-size").click();          // 5x5 -> 3x3
+  await page.waitForTimeout(80);
+  await btn("Cyclic").click();
+  await page.waitForTimeout(120);
+  await btn("Hint").click();
+  await page.waitForTimeout(120);
+  const cy = parseInt((await page.locator(".xws-status .hintcount").textContent()).trim(), 10);
+  ok("cyclic 3x3 hint shows a minimum count", Number.isFinite(cy) && cy >= 1);
+  ok("cyclic hint outlines the whole line as one frame", (await page.locator(".xws-hintline").count()) === 1);
+  ok("cyclic hint uses no per-cell rings", (await page.locator(".xws-cell.hint").count()) === 0);
+
   ok("no uncaught page errors", errors.length === 0);
   if (errors.length) errors.forEach((e) => console.log("   " + e));
 
