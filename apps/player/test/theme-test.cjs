@@ -86,7 +86,9 @@ const PURPLE = {
   console.log("purple cursor:", t.cursorLetter, "on", t.cursorBg, "| number:", t.numFg);
 
   // The ramp actually took effect (cascade + specificity + var() chain).
-  ok("cursor cell fills with vivid accent #A100FF", t.cursorBg === PURPLE.accent);
+  // The cursor cell deliberately uses accent-DEEP, not the vivid accent: at
+  // cell size the vivid purple reads too hot as a solid block.
+  ok("cursor cell fills with accent-deep #7500C0, not the vivid accent", t.cursorBg === PURPLE.deep);
   ok("pill tint is the purple softest, not the green one", t.pillBg === "rgb(230, 220, 255)");
 
   // Contrast fix #1 — accent as TEXT on a tint drops to accent-deep.

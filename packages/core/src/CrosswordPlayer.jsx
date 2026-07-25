@@ -493,6 +493,14 @@ export const TOKENS = `
      only wrong cells are marked). */
   --status-ok:     #A9DCB9;
 }
+
+/* The vivid accent reads too hot as a large solid block at cell size, so the
+   cursor cell takes the deep purple. This is the same "P is for graphic
+   emphasis, not for area" reasoning as --accent-ink, and it strengthens the
+   cell: white on accent-deep is 8.34:1, against 5.30:1 on the vivid accent —
+   for both the letter and the cell number. Vivid P still carries the Check
+   button and the SOLVED stamp. */
+.theme-purple .xw-cell.cursor { background: var(--accent-deep); }
 `;
 
 /* ------------------------------------------------------------- geometry --

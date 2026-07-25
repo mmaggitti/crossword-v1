@@ -82,6 +82,14 @@ this so no rule has to fork per-theme:
 Both green values are aliases, so the green column renders byte-identically to
 before these roles existed. `theme-test.cjs` gates both repairs.
 
+The same "P is for graphic emphasis, not for area" reasoning applies once more
+by eye: at cell size the vivid accent reads too hot as a solid block, so the
+cursor cell is overridden to `accent-deep`
+(`.theme-purple .xw-cell.cursor`). That also lifts white-on-fill from 5.30:1 to
+**8.34:1**, for both the letter and the cell number. Vivid `#A100FF` still
+carries the Check button and the SOLVED stamp, where the block is smaller or
+momentary.
+
 **Note on `status-ok`:** the recorded reason it goes unused is a small-swatch
 hue collision — Leaf green sits ~15.6° from a *green* accent. That rationale
 does not hold against `#A100FF` (~120° away), so purple could legitimately mark
