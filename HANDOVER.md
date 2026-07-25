@@ -1,6 +1,6 @@
 # Crossword Player — handover
 
-**Status:** v1.1 shipped and live. **Live at:** `https://mmaggitti.github.io/crossword-v1/`
+**Status:** v1.1 shipped and live. **Live at:** `https://mmaggitti.github.io/crossword-v1/` — the same player themed purple at `/crossword-v1/purple/`, the scramble game at `/crossword-v1/scramble/`, the prototype at `/crossword-v1/dev/`
 **Repo:** `mmaggitti/crossword-v1` (npm-workspaces monorepo; GitHub Actions → GitHub Pages)
 
 This document is the complete context for picking the project up. It supersedes the earlier single-file handover, which described the retired iPhone-upload build.
@@ -40,7 +40,7 @@ crossword/                        the mmaggitti/crossword-v1 repo
 │   └── player/                   the player app; consumes @crossword/core + @crossword/clue-data
 │       ├── index.html  vite.config.js  package.json
 │       ├── src/{main.jsx, App.jsx, Picker.jsx}
-│       └── test/                   9 Playwright suites (.cjs) + _serve.cjs
+│       └── test/                   10 Playwright suites (.cjs) + _serve.cjs
 ├── docs/color-spec-11.md         the §11 palette (unchanged)
 ├── mini-crosswords.md            the minis in prose; the source for packages/clue-data/minis
 ├── HANDOVER.md  README.md
@@ -57,7 +57,7 @@ crossword/                        the mmaggitti/crossword-v1 repo
 npm install            # installs the whole workspace
 npm run dev            # player dev server, localhost:5173, no service worker
 npm run build          # vite build -> apps/player/dist
-npm test               # pretest builds a fresh dist, then runs all 9 suites
+npm test               # pretest builds a fresh dist, then runs all 10 suites
 npm run test:webkit    # geometry + paint in Safari's engine
 ```
 
@@ -146,7 +146,9 @@ The palette comes from an external spec, §11, a role-based colour system the us
 | `status-ok` is **unused** | Leaf `#B8DAAE` sits 15.6° from the accent, and the spec's own Appendix A.3 names small swatches as where that separation fails. A crossword cell *is* that swatch. Only wrong cells are marked; correct ones stay unstyled. |
 | Solved state uses accent | §11.2 assigns *task progress* to the accent and *threshold measurements* to status colours. A finished puzzle is a completed task. It's also unmistakably "good", which the accent isn't supposed to signal — the two rules genuinely conflict here and the task reading won. |
 | Three accent-family elements on screen | Cursor cell, clue pill, Check button. Read as one live element per unit (grid / clue / actions). More green than the spec's default posture, and the user has explicitly said he wants to keep it. |
-| Clue pill: `accent` on `accent-softest` | 5.07:1. Passes AA for normal text, short of AAA. `accent-deep` on the same fill would clear 7:1 if more headroom is ever wanted. |
+| Clue pill: `accent` on `accent-softest` | Green 5.07:1 — passes AA for normal text, short of AAA. That headroom note is now load-bearing: the purple ramp fails this pair outright (see the next row). |
+| Two roles carry the accent's *text* uses: `--accent-ink`, `--on-accent-quiet` | The spec's role set is otherwise closed, so this is a deliberate addition. Vivid purple `#A100FF` on its own `#E6DCFF` tint is **4.05:1** — under AA in *both* directions, so it fails as the clue pill's text and as the cell number on an accent fill. Rather than fork those two rules per theme, the roles absorb it: green aliases them to the existing tokens (byte-identical rendering), purple points them at `accent-deep` (6.37:1) and `surface` (5.30:1). Gated by `theme-test.cjs`. |
+| The purple variant is the **same app built twice**, not a fork | `apps/player/src` is 100% token-driven, so purple is a pure reskin. CI builds the player again into `dist/purple` with `BASE_PATH=/crossword-v1/purple/`; `main.jsx` derives the theme from `BASE_URL`, so it cannot drift from the URL it is served at. Every future fix lands in both automatically. Trade-off: purple ships no service worker or manifest of its own (green's SW scope already covers it), so it is a browser page, not an installable PWA. |
 
 ### Typography
 
@@ -202,24 +204,25 @@ Neither touches the grid. The rule is that *board geometry* stays in CSS, not th
 The suites live in `apps/player/test/`, are **`.cjs`** (CommonJS, run under bare `node`), and run against the **served Vite build**, not a single file:
 
 ```bash
-npm test        # from the repo root: pretest builds apps/player/dist, then runs all 9 suites
+npm test        # from the repo root: pretest builds apps/player/dist, then runs all 10 suites
 ```
 
 Under the hood each suite starts `_serve.cjs` — a tiny dependency-free static server — pointed at `apps/player/dist`, then drives Chromium/WebKit against `http://127.0.0.1:<port>/#sample` (the engine's built-in sample route). This replaced loading the old inlined single file over `file://`, which browsers refuse for ES-module `<script>` tags. **The tests serve `apps/player/dist` over HTTP; they never open `dist/index.html` directly and there is no single-file build any more.**
 
-The nine suites:
+The ten suites:
 
 | Suite | Checks |
 |---|---|
 | `layout-test.cjs` | Grid fits its stage on both axes, cells square, app fills viewport, page can't scroll — 4 viewports × 2 keyboard states, Chromium (and WebKit via `ENGINE=webkit`). |
 | `paint-test.cjs` | Lifts the dock, screenshots the strip it vacated, decodes every pixel — any non-canvas colour is the ghosting bug. |
 | `typing-test.cjs` | Board stays visible + measured shrink cost across devices. |
-| `clue-test.cjs` | Clue bar can't resize the board across all clues. |
+| `clue-test.cjs` | Clue bar can't resize the board across all clues; pill contrast ≥ AA, **measured from the rendered pill** (it used to assert on two hardcoded hexes, which only proved arithmetic). |
 | `advance-test.cjs` | Entry order and pill alignment. |
 | `kbd-test.cjs` | Keyboard raise/dismiss cycle. |
 | `stuck-test.cjs` | Wedged-focus recovery. |
 | `solve-test.cjs` | Both solve phases, board stability. |
 | `wrong-test.cjs` | Failed-check recovery path. |
+| `theme-test.cjs` | The purple variant: the ramp resolves, both AA repairs hold (`--accent-ink`, `--on-accent-quiet`), the neutrals are untouched, and the default build is still green. |
 
 **All nine now gate.** Each suite ends in `process.exit(1)` on failure (previously only `layout` and `paint` did), so a regression in any of them fails `npm test` and, in CI, blocks the deploy. `npm run test:webkit` runs `layout` + `paint` under WebKit's engine.
 

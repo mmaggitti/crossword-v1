@@ -73,6 +73,14 @@ export const TOKENS = `
   --accent-soft:   #6BC58C;
   --accent-softest:#CDE8D4;
 
+  /* Two derived roles, so a palette whose accent fails AA against its own
+     tint can re-point them without forking a rule. Aliases here, so this
+     column renders byte-identically to before they existed.
+       --accent-ink      accent used as TEXT on a tint  (the clue pill)
+       --on-accent-quiet quiet text on an accent FILL   (number under cursor) */
+  --accent-ink:      var(--accent);
+  --on-accent-quiet: var(--accent-softest);
+
   --ink:           #000000;
   --muted:         #818180;
   --border:        #CFCFCF;
@@ -252,7 +260,7 @@ export const TOKENS = `
   line-height: 1; color: var(--muted);
   pointer-events: none;
 }
-.xw-cell.cursor .xw-num { color: var(--accent-softest); }
+.xw-cell.cursor .xw-num { color: var(--on-accent-quiet); }
 
 /* ===== dock =============================================================
    Rides above the keyboard on a transform. Transforms take no part in
@@ -343,7 +351,7 @@ export const TOKENS = `
   padding: calc(var(--space-xs) * 1.4) var(--space-md);
   border-radius: 100vmax;
   background: var(--accent-softest);
-  color: var(--accent);
+  color: var(--accent-ink);
   font-size: var(--text-lg);
   font-weight: 650;
   line-height: 1.25;
@@ -452,6 +460,38 @@ export const TOKENS = `
 @media (prefers-reduced-motion: reduce) {
   .xw * { transition: none !important; }
   .xw-solved-mark { animation: none !important; }
+}
+
+/* ===== §11.4 palette, purple instantiation ==========================
+   Same roles, different hue. The neutral column is identical to the green
+   one above, so ONLY the accent ramp moves — which is why the manifest,
+   the <meta name="theme-color"> and the paint test all stay correct.
+
+   Applied by the player's main.jsx on the purple build (deployed to
+   /crossword-v1/purple/). The ancestor class gives (0,2,0), so it beats
+   the base .xw (0,1,0) regardless of source order — and it sits last so a
+   future collision with .xw.typing (also 0,2,0) resolves in the theme's
+   favour. apps/scramble imports the same TOKENS but never adds the class,
+   so it stays green.
+
+   Vivid #A100FF against its own #E6DCFF tint is 4.05:1 — under AA in BOTH
+   directions. Per the spec's own escape hatch ("if P fails, run primary
+   actions on accent-deep and use P only for larger graphic emphasis"),
+   text on a tint drops to accent-deep (6.37:1) and quiet text on an accent
+   fill goes white (5.30:1). Vivid P still carries every fill and graphic. */
+.theme-purple .xw {
+  --accent:        #A100FF;
+  --accent-deep:   #7500C0;
+  --accent-deepest:#460073;
+  --accent-soft:   #C2A3FF;
+  --accent-softest:#E6DCFF;
+
+  --accent-ink:      var(--accent-deep);
+  --on-accent-quiet: var(--surface);
+
+  /* Defined for spec completeness; renders nothing (--status-ok is unused —
+     only wrong cells are marked). */
+  --status-ok:     #A9DCB9;
 }
 `;
 

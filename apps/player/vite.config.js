@@ -6,6 +6,13 @@ import { dirname, resolve } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
+// The purple variant is the SAME app built a second time into dist/purple with
+// BASE_PATH=/crossword-v1/purple/ (see build:purple). It ships no service worker
+// of its own: the green build already registers one whose scope covers the whole
+// of /crossword-v1/, and it serves purple network-first via the runtimeCaching
+// rules below. Consequence: purple is a browser page, not an installable PWA.
+const isPurple = (process.env.BASE_PATH ?? "").includes("/purple/");
+
 export default defineConfig({
   // Root-hosted by default. Deployed under the monorepo Pages site with:
   //     BASE_PATH=/crossword/ npm run build --workspace player
@@ -23,6 +30,7 @@ export default defineConfig({
 
   plugins: [
     react(),
+    ...(isPurple ? [] : [
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["apple-touch-icon.png", "favicon-32.png"],
@@ -76,11 +84,12 @@ export default defineConfig({
             }
           },
           {
-            // The sibling apps (/scramble/, /dev/) are assembled in after the
-            // player build, so they are never in this precache. Serve their
-            // assets network-first too, so their latest hashed bundles load
-            // without a manual cache clear (cached copies cover offline).
-            urlPattern: ({ url }) => /^\/crossword-v1\/(scramble|dev)\//.test(url.pathname),
+            // The sibling apps (/scramble/, /dev/, /purple/) are built or
+            // assembled in after the player build, so they are never in this
+            // precache. Serve their assets network-first too, so their latest
+            // hashed bundles load without a manual cache clear (cached copies
+            // cover offline).
+            urlPattern: ({ url }) => /^\/crossword-v1\/(scramble|dev|purple)\//.test(url.pathname),
             handler: "NetworkFirst",
             options: {
               cacheName: "crossword-v1-siblings",
@@ -91,5 +100,6 @@ export default defineConfig({
         ]
       }
     })
+    ])
   ]
 });

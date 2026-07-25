@@ -36,8 +36,9 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium webkit
 
-      # Builds the app (base=/) and runs all 9 suites. A failing suite exits
-      # non-zero and fails the job, so a regression never reaches the site.
+      # Builds the app (base=/) and runs all 10 player suites + 3 scramble ones.
+      # A failing suite exits non-zero and fails the job, so a regression never
+      # reaches the site.
       - name: Test (gates the deploy)
         run: npm test
 
@@ -56,8 +57,29 @@ jobs:
         env:
           BASE_PATH: /crossword-v1/scramble/
 
+      # The purple variant is the SAME player built again, differing only by
+      # BASE_PATH (main.jsx reads the theme off BASE_URL, so it cannot drift
+      # from the URL it is served at). It builds into dist/purple, and Vite
+      # empties only that nested directory — so this needs no assemble step.
+      #
+      # Order is load-bearing twice: it must run AFTER the green build, which
+      # empties the whole of dist/, and after it so purple's assets are not
+      # swept into green's precache manifest (workbox globs all of dist/).
+      - name: Build purple variant for Pages
+        run: npm run build:purple --workspace player
+        env:
+          BASE_PATH: /crossword-v1/purple/
+
+      # A mis-plumbed theme would ship a purple URL rendering green, and every
+      # test would still pass — this is the only thing that catches it.
+      - name: Verify the purple build is actually themed
+        run: |
+          grep -rq "theme-purple" apps/player/dist/purple/assets/ \
+            || (echo "::error::purple build shipped without the theme class" && exit 1)
+
       # One Pages artifact holds every app: the player at the site root, the
-      # scramble game at /scramble/, and the throwaway prototype at /dev/.
+      # scramble game at /scramble/, the purple player at /purple/ (already in
+      # place from its build), and the throwaway prototype at /dev/.
       - name: Assemble site
         run: |
           mkdir -p apps/player/dist/scramble

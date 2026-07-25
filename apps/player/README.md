@@ -15,7 +15,7 @@ Everything installs from the **repo root** (one `npm install` wires up the whole
 npm install
 npm run dev            # player dev server
 npm run build          # -> apps/player/dist
-npm test               # builds a fresh dist, then runs all 9 Playwright suites
+npm test               # builds a fresh dist, then runs all 10 Playwright suites
 
 # equivalently, from apps/player
 npm run dev      # http://localhost:5173

@@ -29,9 +29,10 @@ Colour is defined by **roles, not hues**. Any brand can instantiate these roles.
 
 ## Contrast gates (hard)
 
-- White text on `accent` ≥ 4.5:1 — this palette measures **6.61:1**, so primary actions stay on `accent`
-- `accent` on white ≥ 3:1 for UI/graphic elements — **6.61:1**
-- Black text on `soft` / `softest` ≥ 7:1 — **9.99:1** and **16.09:1**
+- White text on `accent` ≥ 4.5:1 — the green palette measures **6.61:1** (purple **5.30:1**), so primary actions stay on `accent` in both
+- `accent` on white ≥ 3:1 for UI/graphic elements — **6.61:1** (purple **5.30:1**)
+- Black text on `soft` / `softest` ≥ 7:1 — **9.99:1** and **16.09:1** (purple **9.98** and **16.05**)
+- `accent` as text on `accent-softest` ≥ 4.5:1 — green **5.07:1**; **purple fails at 4.05:1** and routes through `--accent-ink` instead (see the purple column below)
 - Black text on every data hue ≥ 8:1
 
 Because the accent clears 4.5:1 on white in both directions, it is also legal as body-weight text on white.
@@ -49,6 +50,43 @@ Because the accent clears 4.5:1 on white in both directions, it is also legal as
 | `accent-deepest` | `#01341A` | 18.1 | Anchors, pull quotes, selected headers |
 | `accent-soft` | `#6BC58C` | 72.9 | Tints, secondary structure. Also the dark-mode substitute |
 | `accent-softest` | `#CDE8D4` | 89.6 | Callout/highlight backgrounds, quiet tints |
+
+#### Second instantiation — the purple column (`/crossword-v1/purple/`)
+
+Applied by `.theme-purple .xw` in `TOKENS`. **The neutrals are identical to the
+green column**, so only the accent ramp moves — which is why the manifest's
+`theme_color`, the `<meta name="theme-color">` and `paint-test.cjs` all remain
+correct without edits.
+
+| Role | Hex | Notes |
+|---|---|---|
+| `accent` | `#A100FF` | White text = **5.30:1** — clears the gate, but with much less headroom than green's 6.61 |
+| `accent-deep` | `#7500C0` | Also carries text on tints here (see below) |
+| `accent-deepest` | `#460073` | Anchors, title, banners |
+| `accent-soft` | `#C2A3FF` | Black text = 9.98:1 |
+| `accent-softest` | `#E6DCFF` | Black text = 16.05:1 |
+| `status-ok` | `#A9DCB9` | Defined for completeness; still unreferenced |
+
+**Where this ramp needed a repair the green one did not.** Vivid `#A100FF`
+against its own `#E6DCFF` tint is **4.05:1** — under AA in *both* directions,
+so it fails as the clue pill's text *and* as the cell number on an accent fill.
+Per the derivation recipe's own escape hatch ("if P fails, run primary actions
+on `accent-deep` and use P only for larger graphic emphasis"), two roles absorb
+this so no rule has to fork per-theme:
+
+| Role | Green | Purple | Used by |
+|---|---|---|---|
+| `--accent-ink` | `var(--accent)` (5.07:1) | `var(--accent-deep)` (**6.37:1**) | `.xw-cluetext` — accent as text on a tint |
+| `--on-accent-quiet` | `var(--accent-softest)` (5.07:1) | `var(--surface)` (**5.30:1**) | `.xw-cell.cursor .xw-num` — quiet text on an accent fill |
+
+Both green values are aliases, so the green column renders byte-identically to
+before these roles existed. `theme-test.cjs` gates both repairs.
+
+**Note on `status-ok`:** the recorded reason it goes unused is a small-swatch
+hue collision — Leaf green sits ~15.6° from a *green* accent. That rationale
+does not hold against `#A100FF` (~120° away), so purple could legitimately mark
+correct cells green. Deliberately not acted on: both builds share one
+stylesheet, and divergent behaviour between them is worse than a stale note.
 
 ### Neutrals — warm column (the recommended default)
 

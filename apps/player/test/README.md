@@ -13,7 +13,7 @@ refuse for ES-module `<script>` tags — **the tests serve `dist`, they never
 open `dist/index.html` directly.**
 
 ```bash
-# from the repo root (recommended): pretest builds dist, then runs all 9
+# from the repo root (recommended): pretest builds dist, then runs all 10
 npm test
 
 # from apps/player, one suite at a time (build dist first if it's stale):
@@ -24,8 +24,8 @@ node test/paint-test.cjs                   # pixel check under the dock
 ENGINE=webkit node test/paint-test.cjs
 ```
 
-The nine suites: **layout, paint, typing, clue, advance, kbd, stuck, solve,
-wrong** — plus `_serve.cjs` (the static server).
+The ten suites: **layout, paint, typing, clue, advance, kbd, stuck, solve,
+wrong, theme** — plus `_serve.cjs` (the static server).
 
 **layout-test.cjs** — across four viewports and both keyboard states, asserts
 the grid fits its stage on both axes, cells stay square, the app fills the
@@ -34,6 +34,17 @@ viewport, and the page cannot scroll.
 **paint-test.cjs** — lifts the dock, screenshots the strip it vacated, and
 decodes every pixel. Any non-canvas colour there means grid rows are showing
 through, which is the ghosting bug.
+
+**theme-test.cjs** — the purple variant shipped at `/crossword-v1/purple/`. The
+theme is pure CSS (a `.theme-purple` block in `TOKENS` applied to `<html>`), so
+this needs no second build: it loads the ordinary `dist/`, adds the class, and
+reads the values back. Everything asserts *used* values (`rgb(r, g, b)`), never
+raw custom-property text — reading the used value is what proves the ancestor
+class actually won the cascade. The two contrast assertions are the point:
+vivid `#A100FF` on its own `#E6DCFF` tint is 4.05:1, under AA in both
+directions, so the palette re-points `--accent-ink` (text on a tint → 6.37:1)
+and `--on-accent-quiet` (quiet text on an accent fill → 5.30:1). Collapsing
+either back to `var(--accent)` fails here.
 
 **All nine gate.** Every suite ends in `process.exit(1)` on failure
 (previously only `layout` and `paint` did), so a regression in any of them

@@ -2,8 +2,17 @@ const { webkit } = require("playwright");
 const { serve } = require("./_serve.cjs");
 const DIST = require("path").resolve(__dirname, "../dist");
 
-const rl = (hex) => {
-  const c = [1,3,5].map(i => parseInt(hex.slice(i,i+2),16)/255)
+// Accepts either "#RRGGBB" or the "rgb(r, g, b)" every engine normalises a
+// USED colour value to. Reading the used value is the whole point: it proves
+// the cascade, the specificity and the var() chain actually resolved — a
+// hardcoded hex pair would only prove that arithmetic still works.
+const channels = (css) => {
+  const m = String(css).match(/rgba?\(([^)]+)\)/);
+  if (m) return m[1].split(",").slice(0, 3).map((n) => parseFloat(n) / 255);
+  return [1, 3, 5].map((i) => parseInt(css.slice(i, i + 2), 16) / 255);
+};
+const rl = (css) => {
+  const c = channels(css)
     .map(v => v <= 0.04045 ? v/12.92 : Math.pow((v+0.055)/1.055, 2.4));
   return 0.2126*c[0] + 0.7152*c[1] + 0.0722*c[2];
 };
@@ -54,14 +63,17 @@ const contrast = (a,b) => {
   const long = await read();
   console.log("with an overlong clue -> bar", long.barH, "grid", long.gridH);
 
-  console.log("contrast accent on accent-softest:", contrast("#076B3B", "#CDE8D4").toFixed(2) + ":1",
-              "(AA normal text needs 4.5)");
+  // Measured from the rendered pill, not from literals — so a palette change
+  // that breaks legibility fails here instead of passing a constant-fold.
+  const pillContrast = contrast(a.fg, a.bg);
+  console.log(`contrast accent-ink on accent-softest: ${pillContrast.toFixed(2)}:1`,
+              `(${a.fg} on ${a.bg}; AA normal text needs 4.5)`);
 
   const checks = [
     ["clue bar height constant across clues", heights.size === 1],
     ["grid height constant across clues", grids.size === 1],
     ["overlong clue doesn't resize bar or grid", long.barH === a.barH && long.gridH === a.gridH],
-    ["pill contrast meets AA (>=4.5)", contrast("#076B3B", "#CDE8D4") >= 4.5],
+    ["pill contrast meets AA (>=4.5), measured from the DOM", pillContrast >= 4.5],
   ];
   const bad = checks.filter(([, ok]) => !ok);
   bad.forEach(([n]) => console.log("FAIL - " + n));

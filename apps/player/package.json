@@ -6,10 +6,12 @@
   "description": "The crossword player app. Consumes @crossword/core; deploys to /crossword/.",
   "scripts": {
     "dev": "vite",
+    "dev:purple": "VITE_THEME=purple vite",
     "build": "vite build",
+    "build:purple": "vite build --outDir dist/purple",
     "preview": "vite preview",
     "pretest": "vite build",
-    "test": "for t in layout paint typing clue advance kbd stuck solve wrong; do echo \"--- $t\"; node test/$t-test.cjs || exit 1; done",
+    "test": "for t in layout paint typing clue advance kbd stuck solve wrong theme; do echo \"--- $t\"; node test/$t-test.cjs || exit 1; done",
     "pretest:webkit": "vite build",
     "test:webkit": "ENGINE=webkit node test/layout-test.cjs && ENGINE=webkit node test/paint-test.cjs"
   },

@@ -7,7 +7,9 @@ description: "Mobile-first offline crossword player — an npm-workspaces monore
 
 Mobile-first, offline crossword **player** built as an npm-workspaces monorepo: a shared engine (`@crossword/core`) and the app that consumes it (`apps/player`). Deployed to GitHub Pages by GitHub Actions.
 
-**Live:** `https://mmaggitti.github.io/crossword-v1/`
+**Live:** `https://mmaggitti.github.io/crossword-v1/` — with the same player in
+purple at `/crossword-v1/purple/`, the scramble game at `/crossword-v1/scramble/`,
+and the throwaway prototype at `/crossword-v1/dev/`.
 
 Everything needed to continue development is here. **Start with `HANDOVER.md`** — it has the architecture, the layout invariants that will silently break if you're careless, the full revision history, and notes on working with Mark.
 
@@ -43,7 +45,7 @@ npx playwright install chromium webkit
 
 npm run dev            # player dev server, localhost:5173, no service worker
 npm run build          # vite build -> apps/player/dist
-npm test               # builds a fresh dist, then runs all 9 suites
+npm test               # builds a fresh dist, then runs all 10 suites
 npm run test:webkit    # geometry + paint in Safari's engine
 ```
 
