@@ -78,6 +78,23 @@ const PURPLE = {
       cursorLetter: cursor ? getComputedStyle(cursor).color : null,
       numFg: num ? getComputedStyle(num).color : null,
       canvas: root.getPropertyValue("--canvas").trim(),
+      fillVar: root.getPropertyValue("--accent-fill").trim(),
+      // The action button is disabled at rest (empty grid) and the SOLVED stamp
+      // only exists once solved, so sample both rules with throwaway probes
+      // mounted inside .xw. This asserts the CSS itself rather than waiting on
+      // game state, and covers the stamp without solving the puzzle.
+      probes: (() => {
+        const host = document.querySelector(".xw");
+        const read = (cls) => {
+          const el = document.createElement("div");
+          el.className = cls;
+          host.appendChild(el);
+          const bg = getComputedStyle(el).backgroundColor;
+          el.remove();
+          return bg;
+        };
+        return { btn: read("xw-btn"), stamp: read("xw-solve") };
+      })(),
     };
   });
 
@@ -88,7 +105,12 @@ const PURPLE = {
   // The ramp actually took effect (cascade + specificity + var() chain).
   // The cursor cell deliberately uses accent-DEEP, not the vivid accent: at
   // cell size the vivid purple reads too hot as a solid block.
+  // Large solid fills all route through --accent-fill: at size the vivid
+  // purple reads too hot, so cursor cell, buttons and the SOLVED stamp are deep.
+  ok("--accent-fill is accent-deep, not the vivid accent", /^#7500C0$/i.test(t.fillVar));
   ok("cursor cell fills with accent-deep #7500C0, not the vivid accent", t.cursorBg === PURPLE.deep);
+  ok("the action button fills with accent-deep too", t.probes.btn === PURPLE.deep);
+  ok("the SOLVED stamp fills with accent-deep too", t.probes.stamp === PURPLE.deep);
   ok("pill tint is the purple softest, not the green one", t.pillBg === "rgb(230, 220, 255)");
 
   // Contrast fix #1 — accent as TEXT on a tint drops to accent-deep.

@@ -73,13 +73,18 @@ export const TOKENS = `
   --accent-soft:   #6BC58C;
   --accent-softest:#CDE8D4;
 
-  /* Two derived roles, so a palette whose accent fails AA against its own
-     tint can re-point them without forking a rule. Aliases here, so this
-     column renders byte-identically to before they existed.
-       --accent-ink      accent used as TEXT on a tint  (the clue pill)
-       --on-accent-quiet quiet text on an accent FILL   (number under cursor) */
+  /* Three derived roles, so a palette whose accent is too hot at size — or
+     fails AA against its own tint — can re-point them without forking a rule.
+     Aliases here, so this column renders byte-identically to before they
+     existed.
+       --accent-ink      accent used as TEXT on a tint   (the clue pill)
+       --on-accent-quiet quiet text on an accent FILL    (number under cursor)
+       --accent-fill     accent as a large SOLID fill    (cursor cell, buttons,
+                         the SOLVED stamp) — as opposed to a stroke or a
+                         wordmark, which stay on --accent */
   --accent-ink:      var(--accent);
   --on-accent-quiet: var(--accent-softest);
+  --accent-fill:     var(--accent);
 
   --ink:           #000000;
   --muted:         #818180;
@@ -204,7 +209,7 @@ export const TOKENS = `
      Pulling out by the frame width covers the board edge to edge. */
   inset: calc(var(--cell) * var(--frame-ratio) * -1);
   display: flex; align-items: center; justify-content: center;
-  background: var(--accent); color: var(--surface);
+  background: var(--accent-fill); color: var(--surface);
   font-family: var(--mono); font-weight: 700;
   font-size: calc(var(--cell) * 0.58);
   letter-spacing: .18em;
@@ -249,7 +254,7 @@ export const TOKENS = `
 }
 .xw-cell.block  { background: var(--ink); cursor: default; }
 .xw-cell.inword { background: var(--accent-softest); }
-.xw-cell.cursor { background: var(--accent); color: var(--surface); }
+.xw-cell.cursor { background: var(--accent-fill); color: var(--surface); }
 .xw-cell.wrong  { background: var(--status-danger); color: var(--ink); }
 
 .xw-num {
@@ -297,7 +302,7 @@ export const TOKENS = `
 .xw-update button {
   flex: 0 0 auto; border: 0; border-radius: var(--radius);
   padding: var(--space-sm) var(--space-md);
-  background: var(--accent); color: var(--surface);
+  background: var(--accent-fill); color: var(--surface);
   font-family: var(--sans); font-size: var(--text-sm); font-weight: 600;
   cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
@@ -381,7 +386,7 @@ export const TOKENS = `
   display: flex; align-items: center; justify-content: center;
   border: 0; border-radius: var(--radius);
   font-family: var(--sans); font-size: var(--text-md); font-weight: 600;
-  background: var(--accent); color: var(--surface);
+  background: var(--accent-fill); color: var(--surface);
   cursor: pointer; -webkit-tap-highlight-color: transparent;
   transition: background-color .12s ease;
 }
@@ -477,8 +482,9 @@ export const TOKENS = `
    Vivid #A100FF against its own #E6DCFF tint is 4.05:1 — under AA in BOTH
    directions. Per the spec's own escape hatch ("if P fails, run primary
    actions on accent-deep and use P only for larger graphic emphasis"),
-   text on a tint drops to accent-deep (6.37:1) and quiet text on an accent
-   fill goes white (5.30:1). Vivid P still carries every fill and graphic. */
+   text on a tint drops to accent-deep (6.37:1), quiet text on an accent fill
+   goes white (5.30:1), and every large solid fill takes accent-deep too.
+   Vivid P is left to strokes and wordmarks. */
 .theme-purple .xw {
   --accent:        #A100FF;
   --accent-deep:   #7500C0;
@@ -488,19 +494,18 @@ export const TOKENS = `
 
   --accent-ink:      var(--accent-deep);
   --on-accent-quiet: var(--surface);
+  /* Vivid P reads too hot as a large solid block — the cursor cell, the
+     buttons, the SOLVED stamp. Same "P is for graphic emphasis, not for area"
+     reasoning as --accent-ink, and it strengthens every one of them: white on
+     accent-deep is 8.34:1, against 5.30:1 on the vivid accent. Vivid P still
+     draws the solved board's frame and the SOLVED wordmark — a stroke and
+     letterspaced text, not area. */
+  --accent-fill:     var(--accent-deep);
 
   /* Defined for spec completeness; renders nothing (--status-ok is unused —
      only wrong cells are marked). */
   --status-ok:     #A9DCB9;
 }
-
-/* The vivid accent reads too hot as a large solid block at cell size, so the
-   cursor cell takes the deep purple. This is the same "P is for graphic
-   emphasis, not for area" reasoning as --accent-ink, and it strengthens the
-   cell: white on accent-deep is 8.34:1, against 5.30:1 on the vivid accent —
-   for both the letter and the cell number. Vivid P still carries the Check
-   button and the SOLVED stamp. */
-.theme-purple .xw-cell.cursor { background: var(--accent-deep); }
 `;
 
 /* ------------------------------------------------------------- geometry --

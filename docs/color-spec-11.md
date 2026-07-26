@@ -78,17 +78,21 @@ this so no rule has to fork per-theme:
 |---|---|---|---|
 | `--accent-ink` | `var(--accent)` (5.07:1) | `var(--accent-deep)` (**6.37:1**) | `.xw-cluetext` — accent as text on a tint |
 | `--on-accent-quiet` | `var(--accent-softest)` (5.07:1) | `var(--surface)` (**5.30:1**) | `.xw-cell.cursor .xw-num` — quiet text on an accent fill |
+| `--accent-fill` | `var(--accent)` | `var(--accent-deep)` (white on it: **8.34:1**) | Every large solid fill: `.xw-cell.cursor`, `.xw-btn`, `.xw-solve`, `.xw-update button` |
 
 Both green values are aliases, so the green column renders byte-identically to
 before these roles existed. `theme-test.cjs` gates both repairs.
 
-The same "P is for graphic emphasis, not for area" reasoning applies once more
-by eye: at cell size the vivid accent reads too hot as a solid block, so the
-cursor cell is overridden to `accent-deep`
-(`.theme-purple .xw-cell.cursor`). That also lifts white-on-fill from 5.30:1 to
-**8.34:1**, for both the letter and the cell number. Vivid `#A100FF` still
-carries the Check button and the SOLVED stamp, where the block is smaller or
-momentary.
+`--accent-fill` is the same idea applied to **area** rather than contrast, and
+it is the one Mark drove by eye: vivid `#A100FF` reads too hot as a large solid
+block. So in purple every solid fill — the cursor cell, the buttons, the SOLVED
+stamp — is `accent-deep`, which also lifts white-on-fill from 5.30:1 to
+**8.34:1** throughout.
+
+What vivid P still draws in purple: the solved board's frame
+(`.xw-gridwrap.solved` border) and the SOLVED wordmark below the board
+(`.xw-solved-mark`). Both are strokes or letterspaced text rather than area —
+exactly the "larger graphic emphasis" the derivation recipe reserves P for.
 
 **Note on `status-ok`:** the recorded reason it goes unused is a small-swatch
 hue collision — Leaf green sits ~15.6° from a *green* accent. That rationale
