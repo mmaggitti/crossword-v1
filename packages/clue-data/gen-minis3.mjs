@@ -10,6 +10,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { answerInOwnClue, checkPuzzle } from "./clue-rules.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const bank = JSON.parse(fs.readFileSync(path.join(here, "clue-bank.json"), "utf8"));
@@ -51,6 +52,10 @@ function findSquare() {
       if (!cols.every((c) => wset.has(c))) return;
       const all = [...rows, ...cols];
       if (new Set(all).size !== 6) return;              // 6 distinct words in-puzzle
+      // Never emit a word whose own bank clue contains it (ROBE/"Bathrobe").
+      // Rejecting here rather than at write time makes the search BACK TRACK to
+      // another square, so the set still comes out at ten. See clue-rules.mjs.
+      if (all.some((w) => answerInOwnClue(w, bank[w]))) return;
       const sig = rows.join("|");
       if (seen.has(sig)) return;                        // not already emitted
       found = { rows: rows.slice(), cols, sig };
@@ -94,6 +99,18 @@ for (let i = 0; i < 10; i++) {
       down: { "1": bank[c0], "2": bank[c1], "3": bank[c2] },
     },
   };
+  // Belt and braces: the square filter above should make this unreachable, but a
+  // future edit that adds another code path must not be able to write a puzzle
+  // that breaks the rules. Throwing beats emitting something the test will
+  // reject later, further from the cause.
+  const problems = checkPuzzle(puzzle);
+  if (problems.length) {
+    throw new Error(
+      `${puzzle.id} violates clue hygiene:\n` +
+        problems.map((p) => `  ${p.entry}  ${p.kind}: ${p.detail}`).join("\n")
+    );
+  }
+
   fs.writeFileSync(path.join(dir, `${puzzle.id}.json`), JSON.stringify(puzzle, null, 2) + "\n");
   made.push(puzzle);
 }

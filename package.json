@@ -12,7 +12,7 @@
     "dev:scramble": "npm run dev --workspace scramble",
     "build": "npm run build --workspace player",
     "build:scramble": "npm run build --workspace scramble",
-    "test": "npm test --workspace player && npm test --workspace scramble",
+    "test": "npm test --workspace @crossword/clue-data && npm test --workspace player && npm test --workspace scramble",
     "test:webkit": "npm run test:webkit --workspace player"
   },
   "allowScripts": {

@@ -93,6 +93,12 @@ A **maximal horizontal or vertical run of length ≥ `minEntryLength`** is an en
 
 The app does **not** enforce construction rules — full checking, all-over interlock, symmetry. It will happily render a grid no editor would accept. That's intentional; validation of construction is a separate concern (backlog B7).
 
+**Clue *content*, however, is now enforced — at build time, not at render time.** One principle, two rules: **a clue must never contain its own answer, or any other answer in the same puzzle.** `ROBE` shipped clued "Bath**robe**", which hands the solver the answer; a sweep found three live cases (also `ABLE`/"Capable", `FIRE`/"Campfire") and ten in `clue-bank.json`. A second sweep found the same sin one entry over: `BEST` clued "Top-**rated**" with `RATE` sitting directly below it as 5A in mini-005. The bank is the deeper leak — `gen-minis3.mjs` copies its clue text verbatim, so a bad entry becomes a bad puzzle the moment a grid uses that answer.
+
+Enforcement is two-sided and shares one predicate (`packages/clue-data/clue-rules.mjs`): the generator's word-square search backtracks past any answer whose bank clue contains it, and `packages/clue-data/test/clue-hygiene-test.mjs` re-checks the emitted JSON plus the whole bank. The test validates emitted files rather than trusting the generator because the 5×5 `minis/` — where all three violations shipped from — has no generator in this repo at all. It runs first in root `npm test` (pure node, ~0.3s) so a content mistake fails before CI installs Playwright.
+
+Both rules' shapes were measured, not guessed. The own-clue rule matches **word-wise** — flat-string matching would match an answer spanning a word gap (`TON` in "Not one") — and it also tests a hyphen-joined tokenization so a decomposed compound ("Bath-robe" for `BATHROBE`) can't slip past. The cross-entry rule matches **morphologically** (another answer plus a common inflection), because plain substring matching there is unusable: it flagged `ICE` in "Rink surf**ace**", `ANT` in "Restaur**ant**", `USE` in "Ca**use**" — 7 coincidences against 1 real leak. Scoping the own-clue rule to its own clue is likewise load-bearing: 72% of 3-letter answers appear inside *some other* clue's word. See the comment atop `clue-rules.mjs` before changing either predicate.
+
 ---
 
 ## 4. Puzzle JSON schema, v1
